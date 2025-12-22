@@ -1145,12 +1145,14 @@ export default function Home() {
                                       href={p.finalUrl ?? p.url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="block rounded-xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)] px-3 py-2 hover:bg-[rgba(17,24,39,0.03)]"
+                                      className="block max-w-full rounded-xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)] px-3 py-2 hover:bg-[rgba(17,24,39,0.03)]"
                                     >
                                       <div className="flex items-center justify-between gap-3">
                                         <div className="min-w-0">
-                                          <div className="truncate text-sm font-medium text-[var(--text)]">{p.url}</div>
-                                          <div className="mt-0.5 text-xs text-[var(--muted)] truncate">
+                                          <div className="w-full truncate text-sm font-medium text-[var(--text)]" title={p.url}>
+                                            {p.url}
+                                          </div>
+                                          <div className="mt-0.5 w-full truncate text-xs text-[var(--muted)]" title={p.contentType ?? "unknown content-type"}>
                                             {p.contentType ?? "unknown content-type"}
                                           </div>
                                         </div>
@@ -1159,7 +1161,7 @@ export default function Home() {
                                         </div>
                                       </div>
                                       {p.fetchNote ? (
-                                        <div className="mt-1 text-xs text-[var(--muted)]">{p.fetchNote}</div>
+                                        <div className="mt-1 break-words text-xs text-[var(--muted)]">{p.fetchNote}</div>
                                       ) : null}
                                     </a>
                                   ))}

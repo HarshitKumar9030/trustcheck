@@ -4,7 +4,7 @@ import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CopyIcon, PrinterIcon, RefreshCcwIcon } from "lucide-react";
 import { AnimatedActionButton } from "./components/AnimatedActionButton";
 
@@ -405,7 +405,6 @@ function Icon({ verdict }: { verdict: Verdict }) {
 }
 
 export default function Home() {
-  const searchParams = useSearchParams();
   const [urlInput, setUrlInput] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -457,15 +456,12 @@ export default function Home() {
 
   const requestedTimeoutMs = deepAnalysis ? DEEP_TIMEOUT_MS : STANDARD_TIMEOUT_MS;
 
-  useEffect(() => {
+  const handleSharedUrl = (sharedUrl: string) => {
     if (autoRanRef.current) return;
-    const sharedUrl = searchParams.get("url") || searchParams.get("u");
-    if (!sharedUrl) return;
     autoRanRef.current = true;
     setUrlInput(sharedUrl);
     void runAnalysis(sharedUrl);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  };
 
   useEffect(() => {
     if (!result) return;
@@ -618,6 +614,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
+      <Suspense fallback={null}>
+        <SearchParamsAutoRun onSharedUrl={handleSharedUrl} />
+      </Suspense>
       <header className="mx-auto max-w-5xl px-5 py-6 print:hidden">
         <div className="flex items-center justify-between">
           <a href="/" className="flex items-center gap-3 group">
@@ -1305,4 +1304,20 @@ export default function Home() {
       </footer>
     </div>
   );
+}
+
+function SearchParamsAutoRun({
+  onSharedUrl,
+}: {
+  onSharedUrl: (url: string) => void;
+}) {
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const sharedUrl = searchParams.get("url") || searchParams.get("u");
+    if (!sharedUrl) return;
+    onSharedUrl(sharedUrl);
+  }, [onSharedUrl, searchParams]);
+
+  return null;
 }

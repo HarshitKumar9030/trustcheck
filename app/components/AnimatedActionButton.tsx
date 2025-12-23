@@ -6,10 +6,11 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface AnimatedActionButtonProps
-  extends Omit<HTMLMotionProps<"button">, "onClick"> {
+  extends Omit<HTMLMotionProps<"button">, "onClick" | "children"> {
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => Promise<void> | void;
   icon?: ReactNode;
   label?: string;
+  children?: ReactNode;
 }
 
 export function AnimatedActionButton({

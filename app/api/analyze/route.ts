@@ -65,6 +65,51 @@ async function fetchWithTimeoutJson(
   }
 }
 
+type EphemeralScreenshot = { url: string; mime?: string; expiresInSeconds?: number };
+
+function stripEphemeralFromAgentSignals(signals: AgentSignals | undefined): AgentSignals | undefined {
+  if (!signals) return signals;
+  if (!signals.screenshot) return signals;
+  return { ...signals, screenshot: null };
+}
+
+async function tryCaptureScreenshotViaPythonAgent(url: string): Promise<EphemeralScreenshot | null> {
+  const base = (process.env.PYTHON_AGENT_URL ?? "").trim().replace(/\/$/, "");
+  if (!base) return null;
+
+  try {
+    const res = await fetchWithTimeoutJson(`${base}/screenshot`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "image/png,image/jpeg,application/json",
+      },
+      body: JSON.stringify({ url }),
+      cache: "no-store",
+      timeoutMs: 12_000,
+    });
+
+    if (!res.ok) return null;
+
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const data = (await res.json()) as { mime?: string; data_base64?: string };
+      if (!data?.data_base64) return null;
+      const mime = (data.mime ?? "image/png").trim() || "image/png";
+      const buf = Buffer.from(data.data_base64, "base64");
+      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs: 120_000 });
+      return { url: `/api/screenshot/${id}`, mime, expiresInSeconds: 120 };
+    }
+
+    const arr = new Uint8Array(await res.arrayBuffer());
+    const mime = contentType.split(";")[0] || "image/png";
+    const { id } = putScreenshot({ mime, data: arr, ttlMs: 120_000 });
+    return { url: `/api/screenshot/${id}`, mime, expiresInSeconds: 120 };
+  } catch {
+    return null;
+  }
+}
+
 type PythonAgentResponse = {
   normalized_url: string;
   hostname: string;
@@ -359,8 +404,16 @@ export async function POST(req: Request) {
         cached: true,
         analyzedAt: new Date(cached.analyzedAtMs).toISOString(),
         aiAnalysis: cached.aiAnalysis,
-        agentSignals: cached.agentSignals,
+        agentSignals: stripEphemeralFromAgentSignals(cached.agentSignals) ?? { agent: "node" },
       };
+
+      // Screenshots are per-request and short-lived; always try to capture a fresh one.
+      const freshShot = await tryCaptureScreenshotViaPythonAgent(response.normalizedUrl);
+      if (freshShot) {
+        response.agentSignals = { ...(response.agentSignals ?? { agent: "node" }), screenshot: freshShot };
+      } else {
+        response.agentSignals = { ...(response.agentSignals ?? { agent: "node" }), screenshot: null };
+      }
 
       // Public flagged list is backed by MongoDB. Best-effort persistence.
       if (isFlaggedAnalysis(response)) {
@@ -400,7 +453,8 @@ export async function POST(req: Request) {
       analyzedAtMs: safeAnalyzedAtMs,
       expireAtMs: safeAnalyzedAtMs + CACHE_TTL_MS,
       aiAnalysis: agentResponse.aiAnalysis,
-      agentSignals: agentResponse.agentSignals,
+      // Don't persist ephemeral screenshot URLs into the cache.
+      agentSignals: stripEphemeralFromAgentSignals(agentResponse.agentSignals) ?? { agent: "python" },
     };
 
     if (ENABLE_CACHE) {
@@ -417,6 +471,12 @@ export async function POST(req: Request) {
       aiAnalysis: record.aiAnalysis,
       agentSignals: record.agentSignals,
     };
+
+    // Ensure screenshot exists for this request (prefer embedded, else capture).
+    if (!response.agentSignals?.screenshot) {
+      const freshShot = await tryCaptureScreenshotViaPythonAgent(response.normalizedUrl);
+      response.agentSignals = { ...(response.agentSignals ?? { agent: "python" }), screenshot: freshShot };
+    }
 
     if (isFlaggedAnalysis(response)) {
       await upsertFlaggedFromAnalysis(response, { observedAtMs: Date.now() });
@@ -469,6 +529,10 @@ export async function POST(req: Request) {
     aiAnalysis: record.aiAnalysis,
     agentSignals: record.agentSignals,
   };
+
+  // Always attempt a screenshot for every request (best-effort).
+  const freshShot = await tryCaptureScreenshotViaPythonAgent(response.normalizedUrl);
+  response.agentSignals = { ...(response.agentSignals ?? { agent: "node" }), screenshot: freshShot };
 
   if (isFlaggedAnalysis(response)) {
     await upsertFlaggedFromAnalysis(response, { observedAtMs: Date.now() });

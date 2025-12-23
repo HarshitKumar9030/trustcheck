@@ -16,7 +16,8 @@ export async function GET(
     });
   }
 
-  return new Response(shot.data, {
+  // Response() in the Node.js runtime expects a BodyInit; Buffer is accepted while Uint8Array
+  return new Response(Buffer.from(shot.data), {
     status: 200,
     headers: {
       "content-type": shot.mime || "image/png",

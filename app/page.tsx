@@ -91,6 +91,36 @@ type AnalysisResponse = {
   agentSignals?: AgentSignals;
 };
 
+type LogLevel = "info" | "good" | "warn" | "bad";
+
+type AnalysisLogEntry = {
+  id: string;
+  atMs: number;
+  level: LogLevel;
+  title: string;
+  detail?: string;
+};
+
+type ScanRecord = {
+  id: string;
+  hostname: string;
+  url: string;
+  analyzedAt: string;
+  score: number;
+  status: AnalysisResponse["status"];
+  aiVerdict?: AgentSignals["aiJudgment"] extends infer T
+    ? T extends { verdict: infer V }
+      ? V
+      : undefined
+    : undefined;
+  aiConfidence?: AgentSignals["aiJudgment"] extends infer T
+    ? T extends { confidence: infer C }
+      ? C
+      : undefined
+    : undefined;
+  flagged: boolean;
+};
+
 function normalizeUrlInput(raw: string): string {
   const input = raw.trim();
   if (!input) throw new Error("Please enter a website URL.");
@@ -172,6 +202,43 @@ function safeHostname(url: string): string {
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
+}
+
+function isFlaggedAnalysis(r: AnalysisResponse): boolean {
+  const scoreFlag = r.score < 45;
+  const statusFlag = r.status === "High Risk Indicators Detected";
+  const verdict = r.agentSignals?.aiJudgment?.verdict;
+  const aiFlag = verdict === "suspicious" || verdict === "likely_deceptive";
+  return Boolean(scoreFlag || statusFlag || aiFlag);
+}
+
+const STORAGE_HISTORY_KEY = "trustcheck:scanHistory";
+
+function loadScanHistory(): ScanRecord[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter((v): v is ScanRecord => typeof v === "object" && v !== null)
+      .slice(0, 50);
+  } catch {
+    return [];
+  }
+}
+
+function saveScanHistory(next: ScanRecord[]) {
+  try {
+    localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(next.slice(0, 50)));
+  } catch {
+    // ignore
+  }
+}
+
+function prettyStepLabel(step: ProgressStep | undefined) {
+  if (!step) return "Working";
+  return step.label;
 }
 
 function ScoreRing({ score, accent }: { score: number; accent: string }) {
@@ -421,6 +488,11 @@ export default function Home() {
   const [checkExternalReviews, setCheckExternalReviews] = useState(true);
   const autoRanRef = useRef(false);
 
+  const [analysisLog, setAnalysisLog] = useState<AnalysisLogEntry[]>([]);
+  const runStartedAtRef = useRef<number | null>(null);
+  const lastStepRef = useRef<number>(-1);
+  const [scanHistory, setScanHistory] = useState<ScanRecord[]>([]);
+
   const progress = useWorkflowProgress(loading, expectedMs);
 
   const theme = useMemo(
@@ -492,6 +564,99 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    setScanHistory(loadScanHistory());
+  }, []);
+
+  useEffect(() => {
+    if (!loading) return;
+    const stepIdx = progress.stepIndex;
+    if (stepIdx === lastStepRef.current) return;
+    lastStepRef.current = stepIdx;
+
+    const startedAt = runStartedAtRef.current;
+    const atMs = startedAt ? Math.max(0, performance.now() - startedAt) : 0;
+    const step = PROGRESS_STEPS[stepIdx];
+    setAnalysisLog((prev) => {
+      const next: AnalysisLogEntry[] = [...prev];
+      next.push({
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        atMs,
+        level: "info",
+        title: prettyStepLabel(step),
+        detail: step?.detail,
+      });
+      return next.slice(-60);
+    });
+  }, [loading, progress.stepIndex]);
+
+  useEffect(() => {
+    if (!result) return;
+    // Persist run into history (client-side) and keep a separate flagged view.
+    const record: ScanRecord = {
+      id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      hostname: safeHostname(result.normalizedUrl),
+      url: result.normalizedUrl,
+      analyzedAt: result.analyzedAt,
+      score: result.score,
+      status: result.status,
+      aiVerdict: result.agentSignals?.aiJudgment?.verdict,
+      aiConfidence: result.agentSignals?.aiJudgment?.confidence,
+      flagged: isFlaggedAnalysis(result),
+    };
+
+    setScanHistory((prev) => {
+      const withoutDup = prev.filter((p) => p.hostname !== record.hostname);
+      const next = [record, ...withoutDup].slice(0, 50);
+      saveScanHistory(next);
+      return next;
+    });
+
+    // Add final structured log entries from the agent response.
+    setAnalysisLog((prev) => {
+      const startedAt = runStartedAtRef.current;
+      const baseAt = startedAt ? Math.max(0, performance.now() - startedAt) : 0;
+      const next: AnalysisLogEntry[] = [...prev];
+      const level: LogLevel = record.flagged ? "bad" : result.score >= 75 ? "good" : result.score >= 45 ? "warn" : "bad";
+      next.push({
+        id: `${Date.now()}-done`,
+        atMs: baseAt,
+        level,
+        title: "Completed",
+        detail: `Score ${result.score}/100 • ${result.status}`,
+      });
+
+      const timings = result.agentSignals?.timingsMs;
+      if (timings && Object.keys(timings).length > 0) {
+        const top = Object.entries(timings)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6);
+        for (const [k, v] of top) {
+          next.push({
+            id: `${Date.now()}-${k}`,
+            atMs: baseAt,
+            level: "info",
+            title: `Timing: ${k}`,
+            detail: formatDurationMs(v),
+          });
+        }
+      }
+
+      const notes = result.agentSignals?.warnings ?? [];
+      for (const n of notes.slice(0, 4)) {
+        next.push({
+          id: `${Date.now()}-note-${Math.random().toString(16).slice(2)}`,
+          atMs: baseAt,
+          level: "warn",
+          title: "Note",
+          detail: n,
+        });
+      }
+
+      return next.slice(-80);
+    });
+  }, [result]);
+
   async function runAnalysis(explicitUrl?: string, opts?: { force?: boolean }) {
     setError(null);
 
@@ -510,6 +675,17 @@ export default function Home() {
     setExpandedCrawl(false);
     setLastRunMs(null);
     setExpectedMs(requestedTimeoutMs);
+    runStartedAtRef.current = performance.now();
+    lastStepRef.current = -1;
+    setAnalysisLog([
+      {
+        id: `${Date.now()}-start`,
+        atMs: 0,
+        level: "info",
+        title: "Starting",
+        detail: "Preparing analysis run",
+      },
+    ]);
 
     try {
       const startedAt = performance.now();
@@ -557,6 +733,27 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
+  }
+
+  const flaggedSites = useMemo(() => scanHistory.filter((r) => r.flagged), [scanHistory]);
+  const recentSites = useMemo(() => scanHistory.slice(0, 10), [scanHistory]);
+
+  function clearHistory() {
+    setScanHistory([]);
+    saveScanHistory([]);
+  }
+
+  function removeHistoryItem(id: string) {
+    setScanHistory((prev) => {
+      const next = prev.filter((p) => p.id !== id);
+      saveScanHistory(next);
+      return next;
+    });
+  }
+
+  async function rerunFromHistory(url: string) {
+    setUrlInput(url);
+    await runAnalysis(url);
   }
 
   async function copyJson() {
@@ -820,6 +1017,39 @@ export default function Home() {
 
                   <div className="mt-6 text-xs text-[var(--muted)]">
                     Tip: Some websites block automation; in those cases, confidence is lowered.
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-[var(--border)] bg-white p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-[var(--text)]">Live analysis log</div>
+                        <div className="mt-1 text-sm text-[var(--muted)]">What’s happening during this run.</div>
+                      </div>
+                      <div className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
+                        {progress.etaSeconds}s ETA
+                      </div>
+                    </div>
+                    <div className="mt-3 max-h-40 overflow-auto rounded-xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)]">
+                      <ul className="divide-y divide-[var(--border)]">
+                        {analysisLog.length > 0 ? (
+                          analysisLog.slice(-12).map((e) => (
+                            <li key={e.id} className="px-3 py-2">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-sm font-medium text-[var(--text)] truncate">{e.title}</div>
+                                  {e.detail ? (
+                                    <div className="mt-0.5 text-xs text-[var(--muted)] break-words">{e.detail}</div>
+                                  ) : null}
+                                </div>
+                                <div className="shrink-0 text-xs text-[var(--muted)]">{formatDurationMs(e.atMs)}</div>
+                              </div>
+                            </li>
+                          ))
+                        ) : (
+                          <li className="px-3 py-3 text-sm text-[var(--muted)]">Waiting for the first signal…</li>
+                        )}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1272,6 +1502,123 @@ export default function Home() {
             </motion.section>
           ) : null}
         </AnimatePresence>
+
+        <section className="mt-10 print:hidden">
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+              <div className="px-6 py-7 sm:px-8">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-[var(--text)]">Flagged / Deceptive sites</div>
+                    <div className="mt-1 text-sm text-[var(--muted)]">Sites that scored low or were judged suspicious.</div>
+                  </div>
+                  <div className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-3 py-1.5 text-xs font-semibold text-[rgba(194,65,68,1)]">
+                    {flaggedSites.length}
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white">
+                  {flaggedSites.length > 0 ? (
+                    <ul className="divide-y divide-[var(--border)]">
+                      {flaggedSites.slice(0, 8).map((r) => (
+                        <li key={r.id} className="px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-[var(--text)] truncate">{r.hostname}</div>
+                              <div className="mt-0.5 text-xs text-[var(--muted)] truncate">{new Date(r.analyzedAt).toLocaleString()}</div>
+                              <div className="mt-1 text-xs text-[var(--muted)]">
+                                Score <span className="font-medium text-[var(--text)]">{r.score}</span> • {r.status}
+                                {r.aiVerdict ? (
+                                  <span> • AI: <span className="font-medium text-[var(--text)]">{String(r.aiVerdict).replace(/_/g, " ")}</span></span>
+                                ) : null}
+                              </div>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => void rerunFromHistory(r.url)}
+                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                              >
+                                Re-check
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeHistoryItem(r.id)}
+                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)]"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="px-4 py-4 text-sm text-[var(--muted)]">No flagged sites yet.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+              <div className="px-6 py-7 sm:px-8">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-[var(--text)]">Recent scans</div>
+                    <div className="mt-1 text-sm text-[var(--muted)]">A quick list of what you’ve checked.</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => clearHistory()}
+                    className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)]"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white">
+                  {recentSites.length > 0 ? (
+                    <ul className="divide-y divide-[var(--border)]">
+                      {recentSites.map((r) => (
+                        <li key={r.id} className="px-4 py-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-[var(--text)] truncate">{r.hostname}</div>
+                              <div className="mt-0.5 text-xs text-[var(--muted)] truncate">{new Date(r.analyzedAt).toLocaleString()}</div>
+                              <div className="mt-1 text-xs text-[var(--muted)]">
+                                Score <span className="font-medium text-[var(--text)]">{r.score}</span>
+                                {r.flagged ? <span className="ml-2 rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[rgba(194,65,68,1)]">Flagged</span> : null}
+                              </div>
+                            </div>
+                            <div className="shrink-0 flex items-center gap-2">
+                              <a
+                                href={r.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-ink)]"
+                              >
+                                Open
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => void rerunFromHistory(r.url)}
+                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                              >
+                                Re-check
+                              </button>
+                            </div>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="px-4 py-4 text-sm text-[var(--muted)]">No scans yet. Run your first analysis above.</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section
           id="disclaimer"

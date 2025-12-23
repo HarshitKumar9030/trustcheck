@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import { DonateClient } from "@/app/donate/DonateClient";
 
 export const metadata: Metadata = {
@@ -25,7 +26,7 @@ export default function DonatePage() {
     <div className="min-h-screen bg-[var(--bg)]">
       <header className="mx-auto max-w-5xl px-5 py-6">
         <div className="flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-3 group">
             <Image
               src="/trustcheck.png"
               alt="TrustCheck"
@@ -39,9 +40,15 @@ export default function DonatePage() {
               </div>
               <div className="text-xs text-[var(--muted)]">AI-Powered Trust Analysis</div>
             </div>
-          </a>
+          </Link>
 
           <div className="flex items-center gap-1">
+            <a
+              href="/flagged"
+              className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+            >
+              Flagged
+            </a>
             <a
               href="/donate"
               aria-current="page"

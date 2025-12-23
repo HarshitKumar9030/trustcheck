@@ -1,7 +1,9 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
+import { Loader } from "@/app/components/Loader";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
@@ -78,6 +80,12 @@ type AgentSignals = {
     businessIdentity: string;
     summary: string;
     recommendation: string;
+  } | null;
+
+  screenshot?: {
+    url: string;
+    mime?: string;
+    expiresInSeconds?: number;
   } | null;
 };
 
@@ -329,16 +337,21 @@ const PROGRESS_STEPS: ProgressStep[] = [
 ];
 
 function useWorkflowProgress(active: boolean, expectedMs: number) {
-  const [elapsedMs, setElapsedMs] = useState(0);
+  const startedAtRef = useRef(0);
+  const [, bump] = useState(0);
 
   useEffect(() => {
     if (!active) return;
-    setElapsedMs(0);
-    const startedAt = performance.now();
+    startedAtRef.current = performance.now();
     const id = window.setInterval(() => {
-      setElapsedMs(performance.now() - startedAt);
+      bump((n) => n + 1);
     }, 100);
     return () => window.clearInterval(id);
+  }, [active]);
+
+  const elapsedMs = useMemo(() => {
+    if (!active) return 0;
+    return performance.now() - startedAtRef.current;
   }, [active]);
 
   const progress = useMemo(() => {
@@ -441,6 +454,12 @@ export default function Home() {
   const [showAiDetails, setShowAiDetails] = useState(false);
   const [showRaw, setShowRaw] = useState(false);
   const [expandedCrawl, setExpandedCrawl] = useState(false);
+  const [screenshot, setScreenshot] = useState<{
+    url: string;
+    mime?: string;
+    expiresInSeconds?: number;
+  } | null>(null);
+  const [capturingScreenshot, setCapturingScreenshot] = useState(false);
   const [generatingCard, setGeneratingCard] = useState(false);
   const resultsRef = useRef<HTMLElement | null>(null);
   const [expectedMs, setExpectedMs] = useState(DEFAULT_EXPECTED_MS);
@@ -634,6 +653,7 @@ export default function Home() {
     setAnimatedScore(0);
     setShowRaw(false);
     setExpandedCrawl(false);
+    setScreenshot(null);
     setLastRunMs(null);
     setExpectedMs(requestedTimeoutMs);
     runStartedAtRef.current = performance.now();
@@ -647,6 +667,8 @@ export default function Home() {
         detail: "Preparing analysis run",
       },
     ]);
+
+    const minLoaderMs = 2200;
 
     try {
       const startedAt = performance.now();
@@ -673,6 +695,7 @@ export default function Home() {
       setUrlInput(typed.normalizedUrl);
       setShowAiDetails(false);
       setShowRaw(false);
+      setScreenshot(typed.agentSignals?.screenshot ?? null);
 
       const durationMs = performance.now() - startedAt;
       setLastRunMs(durationMs);
@@ -692,29 +715,48 @@ export default function Home() {
     } catch {
       setError("We couldn’t complete the analysis right now. Please try again in a moment.");
     } finally {
+      // Ensure the loader is visible long enough to be perceived.
+      // Especially important when results are cached and return instantly.
+      try {
+        const elapsed = performance.now() - runStartedAtRef.current;
+        const remaining = Math.max(0, minLoaderMs - elapsed);
+        if (remaining > 0) {
+          await new Promise<void>((resolve) => window.setTimeout(() => resolve(), remaining));
+        }
+      } catch {
+        // ignore
+      }
       setLoading(false);
     }
   }
 
   const flaggedCount = useMemo(() => scanHistory.reduce((acc, r) => acc + (r.flagged ? 1 : 0), 0), [scanHistory]);
-  const recentSites = useMemo(() => scanHistory.slice(0, 10), [scanHistory]);
 
-  function clearHistory() {
-    setScanHistory([]);
-    saveScanHistory([]);
-  }
-
-  function removeHistoryItem(id: string) {
-    setScanHistory((prev) => {
-      const next = prev.filter((p) => p.id !== id);
-      saveScanHistory(next);
-      return next;
-    });
-  }
-
-  async function rerunFromHistory(url: string) {
-    setUrlInput(url);
-    await runAnalysis(url);
+  async function captureScreenshot() {
+    if (!result?.normalizedUrl) return;
+    setCapturingScreenshot(true);
+    try {
+      const res = await fetch("/api/screenshot/capture", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: result.normalizedUrl }),
+      });
+      const data = (await res.json()) as
+        | { id: string; url: string; mime?: string; expiresInSeconds?: number }
+        | { error: string };
+      if (!res.ok) {
+        const msg = "error" in data ? data.error : "Screenshot unavailable.";
+        setError(msg);
+        return;
+      }
+      if ("url" in data) {
+        setScreenshot({ url: data.url, mime: data.mime, expiresInSeconds: data.expiresInSeconds });
+      }
+    } catch {
+      setError("Screenshot capture failed. Please try again.");
+    } finally {
+      setCapturingScreenshot(false);
+    }
   }
 
   async function copyJson() {
@@ -777,7 +819,7 @@ export default function Home() {
       </Suspense>
       <header className="mx-auto max-w-5xl px-5 py-6 print:hidden">
         <div className="flex items-center justify-between">
-          <a href="/" className="flex items-center gap-3 group">
+          <Link href="/" className="flex items-center gap-3 group">
             <Image
               src="/trustcheck.png"
               alt="TrustCheck"
@@ -789,23 +831,32 @@ export default function Home() {
               <div className="text-sm font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
                 TrustCheck
               </div>
-              <div className="text-xs text-[var(--muted)]">AI-Powered Trust Analysis</div>
+              <div className="text-xs text-[var(--muted)]">Website trust analysis</div>
             </div>
-          </a>
+          </Link>
 
           <div className="flex items-center gap-1">
-            <a
+            <Link
+              href="/flagged"
+              className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+            >
+              Flagged
+              <span className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[rgba(194,65,68,1)]">
+                {flaggedCount}
+              </span>
+            </Link>
+            <Link
               href="/donate"
               className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
             >
               Donate
-            </a>
-            <a
+            </Link>
+            <Link
               href="/disclaimer"
               className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
             >
               Disclaimer
-            </a>
+            </Link>
           </div>
         </div>
       </header>
@@ -961,7 +1012,7 @@ export default function Home() {
                                   />
                                 </svg>
                               ) : state === "active" ? (
-                                <span className="h-5 w-5 rounded-full border-2 border-[var(--brand)]/25 border-t-[var(--brand)] animate-spin" />
+                                <Loader size={20} tone="brand" label="Working" />
                               ) : (
                                 <span className="h-5 w-5 rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)]" />
                               )}
@@ -1464,89 +1515,52 @@ export default function Home() {
           ) : null}
         </AnimatePresence>
 
-        <section className="mt-10 print:hidden">
-          <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-            <div className="px-6 py-7 sm:px-8">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="text-sm font-semibold text-[var(--text)]">Recent scans</div>
-                  <div className="mt-1 text-sm text-[var(--muted)]">A quick list of what you’ve checked.</div>
+        {result ? (
+          <section className="mt-10 print:hidden">
+            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+              <div className="px-6 py-7 sm:px-8">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-semibold text-[var(--text)]">Site snapshot</div>
+                    <div className="mt-1 text-sm text-[var(--muted)]">A short-lived screenshot captured for this run.</div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void captureScreenshot()}
+                      disabled={capturingScreenshot}
+                      className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)] disabled:opacity-60"
+                    >
+                      {capturingScreenshot ? "Capturing…" : "Capture screenshot"}
+                    </button>
+                    {screenshot?.expiresInSeconds ? (
+                      <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
+                        Expires in ~{screenshot.expiresInSeconds}s
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
-                  <a
-                    href="/flagged"
-                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                  >
-                    Flagged
-                    <span className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[rgba(194,65,68,1)]">
-                      {flaggedCount}
-                    </span>
-                  </a>
-                  <button
-                    type="button"
-                    onClick={() => clearHistory()}
-                    className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)]"
-                  >
-                    Clear
-                  </button>
-                </div>
-              </div>
 
-              <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white">
-                {recentSites.length > 0 ? (
-                  <ul className="divide-y divide-[var(--border)]">
-                    {recentSites.map((r) => (
-                      <li key={r.id} className="px-4 py-3">
-                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                          <div className="min-w-0">
-                            <div className="text-sm font-semibold text-[var(--text)] truncate">{r.hostname}</div>
-                            <div className="mt-0.5 text-xs text-[var(--muted)] truncate">{new Date(r.analyzedAt).toLocaleString()}</div>
-                            <div className="mt-2 flex flex-wrap items-center gap-2">
-                              <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
-                                Score <span className="text-[var(--text)]">{r.score}</span>
-                              </span>
-                              {r.flagged ? (
-                                <span className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-3 py-1 text-xs font-semibold text-[rgba(194,65,68,1)]">
-                                  Flagged
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-                          <div className="shrink-0 flex flex-wrap items-center gap-2">
-                            <a
-                              href={r.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-ink)]"
-                            >
-                              Open
-                            </a>
-                            <button
-                              type="button"
-                              onClick={() => void rerunFromHistory(r.url)}
-                              className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                            >
-                              Re-check
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => removeHistoryItem(r.id)}
-                              className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)]"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <div className="px-4 py-4 text-sm text-[var(--muted)]">No scans yet. Run your first analysis above.</div>
-                )}
+                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
+                  {screenshot?.url ? (
+                    <a href={screenshot.url} target="_blank" rel="noreferrer" className="block">
+                      <img
+                        src={screenshot.url}
+                        alt={`Screenshot of ${result.normalizedUrl}`}
+                        className="w-full h-auto"
+                        referrerPolicy="no-referrer"
+                      />
+                    </a>
+                  ) : (
+                    <div className="px-4 py-5 text-sm text-[var(--muted)]">
+                      No screenshot yet. Click “Capture screenshot” (availability depends on the agent and the site).
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
+        ) : null}
 
         <section
           id="disclaimer"
@@ -1554,8 +1568,8 @@ export default function Home() {
         >
           <div className="text-sm font-semibold text-[var(--text)]">Disclaimer</div>
           <p className="mt-2 leading-7">
-            This analysis is automated and based on publicly available data. It does not make legal or
-            factual claims about any website.{" "}
+            TrustCheck summarizes publicly observable signals (HTTPS/TLS, redirects, domain age, headers, and crawl evidence).
+            It does not make legal or factual claims about any website.{" "}
             <a
               href="/disclaimer"
               className="font-medium text-[var(--brand)] hover:text-[var(--brand-ink)] underline underline-offset-2"

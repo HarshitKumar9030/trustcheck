@@ -26,7 +26,7 @@ export default function DisclaimerPage() {
               <div className="text-sm font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
                 TrustCheck
               </div>
-              <div className="text-xs text-[var(--muted)]">AI-Powered Trust Analysis</div>
+              <div className="text-xs text-[var(--muted)]">Website trust analysis</div>
             </div>
           </Link>
           
@@ -58,10 +58,8 @@ export default function DisclaimerPage() {
             <section>
               <h2 className="text-base font-semibold text-[var(--text)]">Purpose of This Tool</h2>
               <p className="mt-2">
-                TrustCheck is an AI-powered analysis tool designed to help users make more informed
-                decisions when visiting unfamiliar websites. It combines automated heuristics with
-                advanced AI (Google Gemini) to aggregate publicly available signals and provide a
-                general trust assessment.
+                TrustCheck helps you make more informed decisions when visiting unfamiliar websites.
+                It summarizes publicly observable signals and presents a structured report to support your own judgment.
               </p>
             </section>
 
@@ -69,19 +67,22 @@ export default function DisclaimerPage() {
               <h2 className="text-base font-semibold text-[var(--text)]">How It Works</h2>
               <ul className="mt-2 list-disc pl-5 space-y-2">
                 <li>
-                  <strong>HTTPS Analysis:</strong> We check if the website uses secure, encrypted connections.
+                  <strong>Connection & TLS:</strong> We check whether HTTPS is used and capture basic certificate signals.
                 </li>
                 <li>
-                  <strong>Domain Age:</strong> We query public WHOIS/RDAP registries to determine how long the domain has been registered.
+                  <strong>Domain Age:</strong> We query public RDAP/WHOIS sources (when available) to estimate registration age.
                 </li>
                 <li>
-                  <strong>Content Analysis:</strong> We scan the homepage for business information, support signals, and potentially concerning claims.
+                  <strong>Fetch & Redirects:</strong> We record HTTP status, content type, and redirect behavior.
                 </li>
                 <li>
-                  <strong>AI Analysis:</strong> Google Gemini AI provides an additional layer of assessment based on all collected signals.
+                  <strong>On-page Signals:</strong> We look for common trust signals like contact/support information, business identity cues, and policy pages.
                 </li>
                 <li>
-                  <strong>Security Headers:</strong> We check for modern security practices in HTTP headers.
+                  <strong>Security Headers:</strong> We check for modern security-related HTTP headers when provided.
+                </li>
+                <li>
+                  <strong>Multi-page Sampling:</strong> When possible, we sample multiple internal pages to reduce homepage-only bias.
                 </li>
               </ul>
             </section>
@@ -90,9 +91,8 @@ export default function DisclaimerPage() {
               <h2 className="text-base font-semibold text-[var(--text)]">No Legal or Factual Claims</h2>
               <p className="mt-2">
                 This tool does not make any legal, factual, or definitive claims about any website.
-                The trust score and analysis are based on automated heuristics and AI interpretation,
-                which may be incomplete, outdated, or inaccurate. We use neutral language and avoid
-                accusatory terms intentionally.
+                The trust score and notes are automated and may be incomplete, outdated, or inaccurate.
+                We intentionally use neutral language and avoid accusatory terms.
               </p>
             </section>
 
@@ -100,7 +100,7 @@ export default function DisclaimerPage() {
               <h2 className="text-base font-semibold text-[var(--text)]">Limitations</h2>
               <ul className="mt-2 list-disc pl-5 space-y-2">
                 <li>
-                  Domain age information relies on public WHOIS/RDAP data, which is not always available or accurate.
+                  Domain age information relies on public RDAP/WHOIS data, which is not always available or accurate.
                 </li>
                 <li>
                   Homepage content analysis may be blocked by certain websites, bot protection, or security measures.
@@ -113,7 +113,7 @@ export default function DisclaimerPage() {
                   Well-known brands may receive favorable treatment even when content cannot be fetched.
                 </li>
                 <li>
-                  AI analysis is based on patterns and may not catch all risks or may occasionally misinterpret signals.
+                  Automated pattern checks may not catch all risks and can misinterpret signals.
                 </li>
                 <li>
                   This tool cannot detect all forms of risk, including but not limited to: malware,
@@ -123,12 +123,10 @@ export default function DisclaimerPage() {
             </section>
 
             <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">AI and Privacy</h2>
+              <h2 className="text-base font-semibold text-[var(--text)]">Privacy</h2>
               <p className="mt-2">
-                When analyzing websites, we send publicly available website data to Google Gemini AI
-                for enhanced analysis. This includes the URL, HTML content (if accessible), and
-                other metadata. No personal user data is collected or sent. URLs submitted for
-                analysis may be cached temporarily to improve performance.
+                We analyze only publicly accessible website content and metadata. We do not ask for your personal data.
+                Submitted URLs may be cached temporarily to improve performance.
               </p>
             </section>
 
@@ -148,6 +146,18 @@ export default function DisclaimerPage() {
                 The creators of TrustCheck accept no liability for any decisions made based on the
                 information provided by this tool. Use at your own risk.
               </p>
+            </section>
+
+            <section>
+              <h2 className="text-base font-semibold text-[var(--text)]">Models Used</h2>
+              <p className="mt-2">
+                TrustCheck may use the following model as part of producing summaries and structured assessments:
+              </p>
+              <ul className="mt-2 list-disc pl-5 space-y-2">
+                <li>
+                  <strong>Gemini 3 Flash</strong>
+                </li>
+              </ul>
             </section>
           </div>
 

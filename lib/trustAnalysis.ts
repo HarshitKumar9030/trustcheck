@@ -55,6 +55,13 @@ export type AgentSignals = {
     summary: string;
     recommendation: string;
   } | null;
+
+  // Short-lived per-run screenshot (served by our API and may expire quickly).
+  screenshot?: {
+    url: string;
+    mime?: string;
+    expiresInSeconds?: number;
+  } | null;
 };
 
 export type AnalysisResponse = {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { getMongoDb } from "../../../lib/mongo";
+import { isFlaggedAnalysis, upsertFlaggedFromAnalysis } from "../../../lib/flaggedSites";
 import {
   type AnalysisCacheRecord,
   type AnalysisResponse,
@@ -8,6 +9,7 @@ import {
   analyzeWebsite,
 } from "../../../lib/trustAnalysis";
 import { type AIAnalysisResult } from "../../../lib/geminiAnalysis";
+import { putScreenshot } from "../../../lib/screenshotStore";
 
 type AnalyzeRequest = {
   url?: string;
@@ -116,9 +118,28 @@ type PythonAgentResponse = {
       fetch_note?: string | null;
     }>;
   };
+
+  // Optional: agent may include a short-lived screenshot payload.
+  screenshot?: {
+    mime?: string;
+    data_base64?: string;
+  } | null;
 };
 
 function mapPythonAgentSignals(data: PythonAgentResponse): AgentSignals {
+  let screenshot: AgentSignals["screenshot"] = null;
+  try {
+    const b64 = data.screenshot?.data_base64;
+    if (b64 && typeof b64 === "string") {
+      const mime = (data.screenshot?.mime ?? "image/png").trim() || "image/png";
+      const buf = Buffer.from(b64, "base64");
+      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs: 120_000 });
+      screenshot = { url: `/api/screenshot/${id}`, mime, expiresInSeconds: 120 };
+    }
+  } catch {
+    screenshot = null;
+  }
+
   return {
     agent: "python",
     domainAgeDays: data.domain_age_days ?? null,
@@ -174,6 +195,7 @@ function mapPythonAgentSignals(data: PythonAgentResponse): AgentSignals {
           recommendation: data.ai_judgment.recommendation,
         }
       : null,
+    screenshot,
   };
 }
 
@@ -339,6 +361,11 @@ export async function POST(req: Request) {
         aiAnalysis: cached.aiAnalysis,
         agentSignals: cached.agentSignals,
       };
+
+      // Public flagged list is backed by MongoDB. Best-effort persistence.
+      if (isFlaggedAnalysis(response)) {
+        await upsertFlaggedFromAnalysis(response, { observedAtMs: Date.now() });
+      }
       return NextResponse.json(response);
     }
   }
@@ -380,7 +407,7 @@ export async function POST(req: Request) {
       await setCached(record);
     }
 
-    return NextResponse.json({
+    const response: AnalysisResponse = {
       normalizedUrl: record.normalizedUrl,
       score: record.score,
       status: record.status,
@@ -389,7 +416,13 @@ export async function POST(req: Request) {
       analyzedAt: record.analyzedAt,
       aiAnalysis: record.aiAnalysis,
       agentSignals: record.agentSignals,
-    } satisfies AnalysisResponse);
+    };
+
+    if (isFlaggedAnalysis(response)) {
+      await upsertFlaggedFromAnalysis(response, { observedAtMs: Date.now() });
+    }
+
+    return NextResponse.json(response);
   }
 
   let analysisBase: Awaited<ReturnType<typeof analyzeWebsite>>;
@@ -436,6 +469,10 @@ export async function POST(req: Request) {
     aiAnalysis: record.aiAnalysis,
     agentSignals: record.agentSignals,
   };
+
+  if (isFlaggedAnalysis(response)) {
+    await upsertFlaggedFromAnalysis(response, { observedAtMs: Date.now() });
+  }
 
   return NextResponse.json(response);
 }

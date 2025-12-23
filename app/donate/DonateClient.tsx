@@ -137,8 +137,8 @@ export function DonateClient({ config }: { config: DonateConfig }) {
         return;
       }
       try {
-        const mod: any = await import("qrcode");
-        const QRCode = mod?.default ?? mod;
+        const mod = await import("qrcode");
+        const QRCode = (mod as unknown as { default?: typeof import("qrcode") }).default ?? (mod as typeof import("qrcode"));
         const dataUrl = await QRCode.toDataURL(upiUri, {
           width: 220,
           margin: 0,

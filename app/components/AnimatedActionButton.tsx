@@ -1,12 +1,12 @@
 "use client";
 
 import { motion, useAnimate } from "framer-motion";
-import type { ButtonHTMLAttributes, ReactNode } from "react";
+import type { ComponentPropsWithoutRef, ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface AnimatedActionButtonProps
-  extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, "onClick"> {
+  extends Omit<ComponentPropsWithoutRef<"button">, "onClick"> {
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => Promise<void> | void;
   icon?: ReactNode;
   label?: string;
@@ -96,7 +96,7 @@ export function AnimatedActionButton({
         className
       )}
       onClick={handleClick}
-      {...(rest as any)}
+      {...rest}
     >
       <span className="flex items-center gap-2">
         {showIndicator ? (

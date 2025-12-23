@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CopyIcon, PrinterIcon, RefreshCcwIcon } from "lucide-react";
 import { AnimatedActionButton } from "./components/AnimatedActionButton";
+import { loadScanHistory, saveScanHistory, type ScanRecord } from "./lib/scanHistory";
 
 type Verdict = "good" | "warn" | "bad" | "unknown";
 
@@ -101,25 +102,7 @@ type AnalysisLogEntry = {
   detail?: string;
 };
 
-type ScanRecord = {
-  id: string;
-  hostname: string;
-  url: string;
-  analyzedAt: string;
-  score: number;
-  status: AnalysisResponse["status"];
-  aiVerdict?: AgentSignals["aiJudgment"] extends infer T
-    ? T extends { verdict: infer V }
-      ? V
-      : undefined
-    : undefined;
-  aiConfidence?: AgentSignals["aiJudgment"] extends infer T
-    ? T extends { confidence: infer C }
-      ? C
-      : undefined
-    : undefined;
-  flagged: boolean;
-};
+// ScanRecord is shared via ./lib/scanHistory
 
 function normalizeUrlInput(raw: string): string {
   const input = raw.trim();
@@ -212,29 +195,7 @@ function isFlaggedAnalysis(r: AnalysisResponse): boolean {
   return Boolean(scoreFlag || statusFlag || aiFlag);
 }
 
-const STORAGE_HISTORY_KEY = "trustcheck:scanHistory";
-
-function loadScanHistory(): ScanRecord[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_HISTORY_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((v): v is ScanRecord => typeof v === "object" && v !== null)
-      .slice(0, 50);
-  } catch {
-    return [];
-  }
-}
-
-function saveScanHistory(next: ScanRecord[]) {
-  try {
-    localStorage.setItem(STORAGE_HISTORY_KEY, JSON.stringify(next.slice(0, 50)));
-  } catch {
-    // ignore
-  }
-}
+// loadScanHistory/saveScanHistory moved to ./lib/scanHistory
 
 function prettyStepLabel(step: ProgressStep | undefined) {
   if (!step) return "Working";
@@ -735,7 +696,7 @@ export default function Home() {
     }
   }
 
-  const flaggedSites = useMemo(() => scanHistory.filter((r) => r.flagged), [scanHistory]);
+  const flaggedCount = useMemo(() => scanHistory.reduce((acc, r) => acc + (r.flagged ? 1 : 0), 0), [scanHistory]);
   const recentSites = useMemo(() => scanHistory.slice(0, 10), [scanHistory]);
 
   function clearHistory() {
@@ -1504,69 +1465,23 @@ export default function Home() {
         </AnimatePresence>
 
         <section className="mt-10 print:hidden">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-              <div className="px-6 py-7 sm:px-8">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--text)]">Flagged / Deceptive sites</div>
-                    <div className="mt-1 text-sm text-[var(--muted)]">Sites that scored low or were judged suspicious.</div>
-                  </div>
-                  <div className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-3 py-1.5 text-xs font-semibold text-[rgba(194,65,68,1)]">
-                    {flaggedSites.length}
-                  </div>
+          <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+            <div className="px-6 py-7 sm:px-8">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="text-sm font-semibold text-[var(--text)]">Recent scans</div>
+                  <div className="mt-1 text-sm text-[var(--muted)]">A quick list of what you’ve checked.</div>
                 </div>
-
-                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white">
-                  {flaggedSites.length > 0 ? (
-                    <ul className="divide-y divide-[var(--border)]">
-                      {flaggedSites.slice(0, 8).map((r) => (
-                        <li key={r.id} className="px-4 py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-[var(--text)] truncate">{r.hostname}</div>
-                              <div className="mt-0.5 text-xs text-[var(--muted)] truncate">{new Date(r.analyzedAt).toLocaleString()}</div>
-                              <div className="mt-1 text-xs text-[var(--muted)]">
-                                Score <span className="font-medium text-[var(--text)]">{r.score}</span> • {r.status}
-                                {r.aiVerdict ? (
-                                  <span> • AI: <span className="font-medium text-[var(--text)]">{String(r.aiVerdict).replace(/_/g, " ")}</span></span>
-                                ) : null}
-                              </div>
-                            </div>
-                            <div className="shrink-0 flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void rerunFromHistory(r.url)}
-                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                              >
-                                Re-check
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => removeHistoryItem(r.id)}
-                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)]"
-                              >
-                                Remove
-                              </button>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="px-4 py-4 text-sm text-[var(--muted)]">No flagged sites yet.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-              <div className="px-6 py-7 sm:px-8">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--text)]">Recent scans</div>
-                    <div className="mt-1 text-sm text-[var(--muted)]">A quick list of what you’ve checked.</div>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <a
+                    href="/flagged"
+                    className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                  >
+                    Flagged
+                    <span className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[rgba(194,65,68,1)]">
+                      {flaggedCount}
+                    </span>
+                  </a>
                   <button
                     type="button"
                     onClick={() => clearHistory()}
@@ -1575,46 +1490,59 @@ export default function Home() {
                     Clear
                   </button>
                 </div>
+              </div>
 
-                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white">
-                  {recentSites.length > 0 ? (
-                    <ul className="divide-y divide-[var(--border)]">
-                      {recentSites.map((r) => (
-                        <li key={r.id} className="px-4 py-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-[var(--text)] truncate">{r.hostname}</div>
-                              <div className="mt-0.5 text-xs text-[var(--muted)] truncate">{new Date(r.analyzedAt).toLocaleString()}</div>
-                              <div className="mt-1 text-xs text-[var(--muted)]">
-                                Score <span className="font-medium text-[var(--text)]">{r.score}</span>
-                                {r.flagged ? <span className="ml-2 rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[rgba(194,65,68,1)]">Flagged</span> : null}
-                              </div>
-                            </div>
-                            <div className="shrink-0 flex items-center gap-2">
-                              <a
-                                href={r.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-ink)]"
-                              >
-                                Open
-                              </a>
-                              <button
-                                type="button"
-                                onClick={() => void rerunFromHistory(r.url)}
-                                className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                              >
-                                Re-check
-                              </button>
+              <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white">
+                {recentSites.length > 0 ? (
+                  <ul className="divide-y divide-[var(--border)]">
+                    {recentSites.map((r) => (
+                      <li key={r.id} className="px-4 py-3">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-[var(--text)] truncate">{r.hostname}</div>
+                            <div className="mt-0.5 text-xs text-[var(--muted)] truncate">{new Date(r.analyzedAt).toLocaleString()}</div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1 text-xs font-medium text-[var(--muted)]">
+                                Score <span className="text-[var(--text)]">{r.score}</span>
+                              </span>
+                              {r.flagged ? (
+                                <span className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-3 py-1 text-xs font-semibold text-[rgba(194,65,68,1)]">
+                                  Flagged
+                                </span>
+                              ) : null}
                             </div>
                           </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <div className="px-4 py-4 text-sm text-[var(--muted)]">No scans yet. Run your first analysis above.</div>
-                  )}
-                </div>
+                          <div className="shrink-0 flex flex-wrap items-center gap-2">
+                            <a
+                              href={r.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--brand)] hover:text-[var(--brand-ink)]"
+                            >
+                              Open
+                            </a>
+                            <button
+                              type="button"
+                              onClick={() => void rerunFromHistory(r.url)}
+                              className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                            >
+                              Re-check
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeHistoryItem(r.id)}
+                              className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--muted)] hover:text-[var(--text)]"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="px-4 py-4 text-sm text-[var(--muted)]">No scans yet. Run your first analysis above.</div>
+                )}
               </div>
             </div>
           </div>

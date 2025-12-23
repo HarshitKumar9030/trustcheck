@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import QRCode from "qrcode";
 import React from "react";
+import { checkIpRateLimit, rateLimitHeaders } from "@/lib/ipRateLimit";
 
 export const runtime = "edge";
 
@@ -46,6 +47,15 @@ function scoreBg(score: number) {
 }
 
 export async function POST(req: Request) {
+  // Trust cards can be spammed (image generation). Generous throttle.
+  const rl = checkIpRateLimit(req, { scope: "trustcard", capacity: 10, refillPerSecond: 0.5 });
+  if (!rl.ok) {
+    return new Response("Too many requests", {
+      status: 429,
+      headers: rateLimitHeaders(rl),
+    });
+  }
+
   const payload = (await req.json()) as TrustCardRequest;
   const url = payload.url;
   const score = clamp(Math.round(payload.score ?? 0), 0, 100);

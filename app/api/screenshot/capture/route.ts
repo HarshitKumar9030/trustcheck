@@ -1,4 +1,5 @@
 import { putScreenshot } from "@/lib/screenshotStore";
+import { checkIpRateLimit, rateLimitHeaders } from "@/lib/ipRateLimit";
 
 export const runtime = "nodejs";
 
@@ -23,6 +24,15 @@ async function fetchWithTimeout(input: string, init: RequestInit & { timeoutMs?:
 }
 
 export async function POST(req: Request) {
+  // Screenshots are expensive; be generous but prevent abuse.
+  const rl = checkIpRateLimit(req, { scope: "screenshot", capacity: 6, refillPerSecond: 0.15 });
+  if (!rl.ok) {
+    return new Response(JSON.stringify({ error: "Too many screenshot requests. Please wait and try again." }), {
+      status: 429,
+      headers: { "content-type": "application/json", ...rateLimitHeaders(rl) },
+    });
+  }
+
   let body: Body;
   try {
     body = (await req.json()) as Body;

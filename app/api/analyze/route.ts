@@ -10,6 +10,7 @@ import {
 } from "../../../lib/trustAnalysis";
 import { type AIAnalysisResult } from "../../../lib/geminiAnalysis";
 import { putScreenshot } from "../../../lib/screenshotStore";
+import { checkIpRateLimit, rateLimitHeaders } from "../../../lib/ipRateLimit";
 
 type AnalyzeRequest = {
   url?: string;
@@ -356,6 +357,15 @@ async function setCached(record: AnalysisCacheRecord): Promise<void> {
 }
 
 export async function POST(req: Request) {
+  // Generous but protective: allow bursts, throttle sustained spam.
+  const rl = checkIpRateLimit(req, { scope: "analyze", capacity: 10, refillPerSecond: 0.20 });
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "Too many requests. Please wait a moment and try again." },
+      { status: 429, headers: rateLimitHeaders(rl) }
+    );
+  }
+
   let body: AnalyzeRequest;
   try {
     body = (await req.json()) as AnalyzeRequest;

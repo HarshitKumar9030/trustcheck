@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Loader } from "@/app/components/Loader";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CopyIcon, PrinterIcon, RefreshCcwIcon } from "lucide-react";
 import { AnimatedActionButton } from "./components/AnimatedActionButton";
@@ -338,7 +339,7 @@ const PROGRESS_STEPS: ProgressStep[] = [
 
 function useWorkflowProgress(active: boolean, expectedMs: number) {
   const startedAtRef = useRef(0);
-  const [, bump] = useState(0);
+  const [tick, bump] = useState(0);
 
   useEffect(() => {
     if (!active) return;
@@ -352,7 +353,7 @@ function useWorkflowProgress(active: boolean, expectedMs: number) {
   const elapsedMs = useMemo(() => {
     if (!active) return 0;
     return performance.now() - startedAtRef.current;
-  }, [active]);
+  }, [active, tick]);
 
   const progress = useMemo(() => {
     if (!active) return 0;
@@ -460,6 +461,13 @@ export default function Home() {
     expiresInSeconds?: number;
   } | null>(null);
   const [capturingScreenshot, setCapturingScreenshot] = useState(false);
+  const [timelineShots, setTimelineShots] = useState<
+    Array<{ url: string; mime?: string; expiresInSeconds?: number; label: string; atMs?: number }>
+  >([]);
+  const [timelineIndex, setTimelineIndex] = useState(0);
+  const [capturingTimeline, setCapturingTimeline] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const timelineAbortRef = useRef<AbortController | null>(null);
   const [generatingCard, setGeneratingCard] = useState(false);
   const resultsRef = useRef<HTMLElement | null>(null);
   const [expectedMs, setExpectedMs] = useState(DEFAULT_EXPECTED_MS);
@@ -654,6 +662,9 @@ export default function Home() {
     setShowRaw(false);
     setExpandedCrawl(false);
     setScreenshot(null);
+    setTimelineShots([]);
+    setTimelineIndex(0);
+    setTimelineError(null);
     setLastRunMs(null);
     setExpectedMs(requestedTimeoutMs);
     runStartedAtRef.current = performance.now();
@@ -669,6 +680,40 @@ export default function Home() {
     ]);
 
     const minLoaderMs = 2200;
+
+    // Kick off timeline screenshots in parallel so UI doesn't block.
+    // This intentionally does NOT affect the main analysis flow or global error banner.
+    timelineAbortRef.current?.abort();
+    const timelineController = new AbortController();
+    timelineAbortRef.current = timelineController;
+    void (async () => {
+      setCapturingTimeline(true);
+      try {
+        const res = await fetch("/api/screenshot/timeline", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ url: normalized }),
+          signal: timelineController.signal,
+        });
+        const data = (await res.json()) as
+          | { shots: Array<{ url: string; mime?: string; expiresInSeconds?: number; label: string; atMs?: number }> }
+          | { error: string };
+        if (!res.ok) {
+          const msg = "error" in data ? data.error : "Screenshot timeline unavailable.";
+          setTimelineError(msg);
+          return;
+        }
+        if ("shots" in data && Array.isArray(data.shots) && data.shots.length > 0) {
+          setTimelineShots(data.shots);
+          setTimelineIndex(0);
+        }
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setTimelineError("Screenshot timeline failed.");
+      } finally {
+        setCapturingTimeline(false);
+      }
+    })();
 
     try {
       const startedAt = performance.now();
@@ -756,6 +801,40 @@ export default function Home() {
       setError("Screenshot capture failed. Please try again.");
     } finally {
       setCapturingScreenshot(false);
+    }
+  }
+
+  async function captureTimeline() {
+    if (!result?.normalizedUrl) return;
+    setTimelineError(null);
+    setCapturingTimeline(true);
+    timelineAbortRef.current?.abort();
+    const controller = new AbortController();
+    timelineAbortRef.current = controller;
+    try {
+      const res = await fetch("/api/screenshot/timeline", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ url: result.normalizedUrl }),
+        signal: controller.signal,
+      });
+      const data = (await res.json()) as
+        | { shots: Array<{ url: string; mime?: string; expiresInSeconds?: number; label: string; atMs?: number }> }
+        | { error: string };
+      if (!res.ok) {
+        const msg = "error" in data ? data.error : "Screenshot timeline unavailable.";
+        setTimelineError(msg);
+        return;
+      }
+      if ("shots" in data && Array.isArray(data.shots)) {
+        setTimelineShots(data.shots);
+        setTimelineIndex(0);
+      }
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
+      setTimelineError("Screenshot timeline failed.");
+    } finally {
+      setCapturingTimeline(false);
     }
   }
 
@@ -1521,31 +1600,31 @@ export default function Home() {
               <div className="px-6 py-7 sm:px-8">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-[var(--text)]">Site snapshot</div>
-                    <div className="mt-1 text-sm text-[var(--muted)]">A short-lived screenshot captured for this run.</div>
+                    <div className="text-sm font-semibold text-[var(--text)]">Site snapshots</div>
+                    <div className="mt-1 text-sm text-[var(--muted)]">1s, 3s, and 5s timeline snapshots (short-lived).</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => void captureScreenshot()}
-                      disabled={capturingScreenshot}
+                      onClick={() => void captureTimeline()}
+                      disabled={capturingTimeline}
                       className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)] disabled:opacity-60"
                     >
-                      {capturingScreenshot ? "Capturing…" : "Capture screenshot"}
+                      {capturingTimeline ? "Capturing timeline…" : "Capture 1s/3s/5s"}
                     </button>
-                    {screenshot?.expiresInSeconds ? (
+                    {timelineShots[timelineIndex]?.expiresInSeconds ? (
                       <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
-                        Expires in ~{screenshot.expiresInSeconds}s
+                        Expires in ~{timelineShots[timelineIndex]?.expiresInSeconds}s
                       </span>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
-                  {screenshot?.url ? (
-                    <a href={screenshot.url} target="_blank" rel="noreferrer" className="block">
+                  {timelineShots.length > 0 && timelineShots[timelineIndex]?.url ? (
+                    <a href={timelineShots[timelineIndex].url} target="_blank" rel="noreferrer" className="block">
                       <img
-                        src={screenshot.url}
+                        src={timelineShots[timelineIndex].url}
                         alt={`Screenshot of ${result.normalizedUrl}`}
                         className="w-full h-auto"
                         referrerPolicy="no-referrer"
@@ -1553,10 +1632,66 @@ export default function Home() {
                     </a>
                   ) : (
                     <div className="px-4 py-5 text-sm text-[var(--muted)]">
-                      No screenshot yet. Click “Capture screenshot” (availability depends on the agent and the site).
+                      {timelineError ? (
+                        <span className="text-[rgba(194,65,68,1)]">{timelineError}</span>
+                      ) : capturingTimeline ? (
+                        "Capturing timeline…"
+                      ) : (
+                        "No timeline snapshots yet. Availability depends on the agent and the site."
+                      )}
                     </div>
                   )}
                 </div>
+
+                {timelineShots.length > 1 ? (
+                  <div className="mt-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div className="text-xs font-medium text-[var(--muted)]">
+                        Showing <span className="text-[var(--text)]">{timelineShots[timelineIndex]?.label}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setTimelineIndex((i) => (i - 1 + timelineShots.length) % timelineShots.length)}
+                          className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                        >
+                          Prev
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setTimelineIndex((i) => (i + 1) % timelineShots.length)}
+                          className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      {timelineShots.map((s, idx) => (
+                        <button
+                          key={`${s.url}-${idx}`}
+                          type="button"
+                          onClick={() => setTimelineIndex(idx)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                            idx === timelineIndex
+                              ? "border-[rgba(47,111,237,0.35)] bg-[rgba(47,111,237,0.08)] text-[var(--brand)]"
+                              : "border-[var(--border)] bg-white text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                          )}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {timelineShots.length === 0 && screenshot?.url ? (
+                  <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)] px-4 py-3 text-sm text-[var(--muted)]">
+                    A single snapshot is available. Use “Capture 1s/3s/5s” for the timeline.
+                  </div>
+                ) : null}
               </div>
             </div>
           </section>

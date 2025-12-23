@@ -681,40 +681,6 @@ export default function Home() {
 
     const minLoaderMs = 2200;
 
-    // Kick off timeline screenshots in parallel so UI doesn't block.
-    // This intentionally does NOT affect the main analysis flow or global error banner.
-    timelineAbortRef.current?.abort();
-    const timelineController = new AbortController();
-    timelineAbortRef.current = timelineController;
-    void (async () => {
-      setCapturingTimeline(true);
-      try {
-        const res = await fetch("/api/screenshot/timeline", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ url: normalized }),
-          signal: timelineController.signal,
-        });
-        const data = (await res.json()) as
-          | { shots: Array<{ url: string; mime?: string; expiresInSeconds?: number; label: string; atMs?: number }> }
-          | { error: string };
-        if (!res.ok) {
-          const msg = "error" in data ? data.error : "Screenshot timeline unavailable.";
-          setTimelineError(msg);
-          return;
-        }
-        if ("shots" in data && Array.isArray(data.shots) && data.shots.length > 0) {
-          setTimelineShots(data.shots);
-          setTimelineIndex(0);
-        }
-      } catch (e) {
-        if (e instanceof DOMException && e.name === "AbortError") return;
-        setTimelineError("Screenshot timeline failed.");
-      } finally {
-        setCapturingTimeline(false);
-      }
-    })();
-
     try {
       const startedAt = performance.now();
       const res = await fetch("/api/analyze", {
@@ -741,6 +707,40 @@ export default function Home() {
       setShowAiDetails(false);
       setShowRaw(false);
       setScreenshot(typed.agentSignals?.screenshot ?? null);
+
+      // Run timeline screenshots AFTER analysis to avoid concurrent Playwright sessions.
+      // This intentionally does NOT affect the main analysis flow or global error banner.
+      timelineAbortRef.current?.abort();
+      const timelineController = new AbortController();
+      timelineAbortRef.current = timelineController;
+      void (async () => {
+        setCapturingTimeline(true);
+        try {
+          const res = await fetch("/api/screenshot/timeline", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ url: typed.normalizedUrl }),
+            signal: timelineController.signal,
+          });
+          const data = (await res.json()) as
+            | { shots: Array<{ url: string; mime?: string; expiresInSeconds?: number; label: string; atMs?: number }> }
+            | { error: string };
+          if (!res.ok) {
+            const msg = "error" in data ? data.error : "Screenshot timeline unavailable.";
+            setTimelineError(msg);
+            return;
+          }
+          if ("shots" in data && Array.isArray(data.shots) && data.shots.length > 0) {
+            setTimelineShots(data.shots);
+            setTimelineIndex(0);
+          }
+        } catch (e) {
+          if (e instanceof DOMException && e.name === "AbortError") return;
+          setTimelineError("Screenshot timeline failed.");
+        } finally {
+          setCapturingTimeline(false);
+        }
+      })();
 
       const durationMs = performance.now() - startedAt;
       setLastRunMs(durationMs);

@@ -9,6 +9,26 @@ type AgentTimelineResponse = {
   shots: Array<{ at_ms: number; mime?: string; data_base64: string }>;
 };
 
+async function readUpstreamError(res: Response): Promise<string> {
+  try {
+    const contentType = res.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const j = (await res.json()) as { detail?: string; error?: string; message?: string };
+      const msg = (j?.detail ?? j?.error ?? j?.message ?? "").toString().trim();
+      if (msg) return msg.slice(0, 500);
+    }
+  } catch {
+    // ignore
+  }
+  try {
+    const t = (await res.text()).trim();
+    if (t) return t.slice(0, 500);
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -59,7 +79,12 @@ export async function POST(req: Request) {
     });
 
     if (!res.ok) {
-      return json({ error: "Screenshot timeline unavailable" }, 502);
+      if (res.status === 404) {
+        return json({ error: "Timeline screenshots are not supported by the agent yet." }, 501);
+      }
+      const detail = await readUpstreamError(res);
+      const suffix = detail ? ` ${detail}` : "";
+      return json({ error: `Screenshot timeline unavailable (upstream ${res.status}).${suffix}` }, 502);
     }
 
     const data = (await res.json()) as AgentTimelineResponse;
@@ -89,7 +114,9 @@ export async function POST(req: Request) {
     if (shots.length === 0) return json({ error: "No screenshots captured" }, 502);
 
     return json({ shots });
-  } catch {
-    return json({ error: "Screenshot timeline request failed" }, 502);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "";
+    const suffix = msg ? ` ${msg}` : "";
+    return json({ error: `Screenshot timeline request failed.${suffix}` }, 502);
   }
 }

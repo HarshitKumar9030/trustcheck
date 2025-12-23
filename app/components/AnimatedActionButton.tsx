@@ -1,12 +1,12 @@
 "use client";
 
-import { motion, useAnimate } from "framer-motion";
-import type { ComponentPropsWithoutRef, ReactNode } from "react";
+import { motion, useAnimate, type HTMLMotionProps } from "framer-motion";
+import type { ReactNode } from "react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 interface AnimatedActionButtonProps
-  extends Omit<ComponentPropsWithoutRef<"button">, "onClick"> {
+  extends Omit<HTMLMotionProps<"button">, "onClick"> {
   onClick?: (event: React.MouseEvent<HTMLButtonElement>) => Promise<void> | void;
   icon?: ReactNode;
   label?: string;

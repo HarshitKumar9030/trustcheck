@@ -70,6 +70,8 @@ export async function POST(req: Request) {
   if (!base) return json({ error: "Screenshot agent is not configured" }, 501);
 
   try {
+    const ttlMs = 30 * 60 * 1000; // 30 minutes
+    const expiresInSeconds = Math.round(ttlMs / 1000);
     const res = await fetchWithTimeout(`${base}/screenshots`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "application/json" },
@@ -98,7 +100,7 @@ export async function POST(req: Request) {
       .map((s) => {
         const buf = Buffer.from(s.data_base64, "base64");
         const mime = (s.mime ?? "image/png").trim() || "image/png";
-        const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs: 120_000 });
+        const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
         const atMs = typeof s.at_ms === "number" && Number.isFinite(s.at_ms) ? Math.max(0, Math.round(s.at_ms)) : 0;
         const atSeconds = Math.round(atMs / 1000);
         return {
@@ -107,7 +109,7 @@ export async function POST(req: Request) {
           mime,
           atMs,
           label: `${atSeconds}s`,
-          expiresInSeconds: 120,
+          expiresInSeconds,
         };
       });
 

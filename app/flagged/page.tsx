@@ -1,7 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
+
+import { FadeIn } from "@/app/components/FadeIn";
 import { getMongoDb } from "../../lib/mongo";
 import { queryFlaggedSites, type FlaggedSiteRecord } from "../../lib/flaggedSites";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function formatWhen(ms: number): string {
   try {
@@ -24,9 +29,7 @@ function Badge({ children, tone }: { children: React.ReactNode; tone: "danger" |
       : tone === "warn"
         ? "border-[rgba(245,158,11,0.22)] bg-[rgba(245,158,11,0.08)] text-[rgba(180,83,9,1)]"
         : "border-[var(--border)] bg-[rgba(17,24,39,0.02)] text-[var(--muted)]";
-  return (
-    <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${styles}`}>{children}</span>
-  );
+  return <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${styles}`}>{children}</span>;
 }
 
 function WhatWasFound({ r }: { r: FlaggedSiteRecord }) {
@@ -67,7 +70,9 @@ export default async function FlaggedPage({
 
   const db = await getMongoDb();
   const mongoReady = Boolean(db);
-  const flagged = mongoReady ? await queryFlaggedSites({ q, limit: 60 }) : [];
+
+  // Always query; lib will fall back to in-memory list if Mongo isn't available.
+  const flagged = await queryFlaggedSites({ q, limit: 60 });
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
@@ -115,59 +120,58 @@ export default async function FlaggedPage({
 
       <main className="mx-auto max-w-5xl px-5 pb-16">
         <section className="pt-6 sm:pt-10">
-          <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-            <div className="px-6 py-7 sm:px-8">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">
-                    Flagged sites
-                  </h1>
-                  <p className="mt-1 text-sm text-[var(--muted)]">
-                    Public list of websites that scored low or had strong risk indicators.
-                  </p>
-                </div>
-
-
-              </div>
-
-              <form className="mt-5" action="/flagged" method="get">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="flex-1">
-                    <label className="sr-only" htmlFor="q">
-                      Search
-                    </label>
-                    <input
-                      id="q"
-                      name="q"
-                      defaultValue={q}
-                      placeholder="Search domain or URL…"
-                      className="h-11 w-full rounded-2xl border border-[var(--border)] bg-white px-4 text-sm text-[var(--text)] shadow-sm outline-none placeholder:text-[rgba(17,24,39,0.35)] focus:ring-4 focus:ring-[var(--ring)]"
-                    />
+          <FadeIn>
+            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+              <div className="px-6 py-7 sm:px-8">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <h1 className="text-xl font-semibold tracking-tight text-[var(--text)]">Flagged sites</h1>
+                    <p className="mt-1 text-sm text-[var(--muted)]">
+                      Public list of websites that scored low or had strong risk indicators.
+                    </p>
                   </div>
-                  <button
-                    type="submit"
-                    className="h-11 rounded-2xl bg-[var(--brand)] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-ink)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-                  >
-                    Search
-                  </button>
                 </div>
-                <div className="mt-2 text-xs text-[var(--muted)]">
-                  {mongoReady ? (
-                    <span>
-                      Showing {flagged.length}
-                      {q.trim() ? " matching results" : " latest results"}.
-                    </span>
-                  ) : (
-                    <span>
-                      MongoDB is not configured. Set <span className="font-medium">MONGODB_URI</span> (and optionally <span className="font-medium">MONGODB_DB</span>) to enable the public flagged list.
-                    </span>
-                  )}
-                </div>
-              </form>
 
-              <div className="mt-5 rounded-2xl border border-[var(--border)] bg-white">
-                {mongoReady ? (
-                  flagged.length > 0 ? (
+                <form className="mt-5" action="/flagged" method="get">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="flex-1">
+                      <label className="sr-only" htmlFor="q">
+                        Search
+                      </label>
+                      <input
+                        id="q"
+                        name="q"
+                        defaultValue={q}
+                        placeholder="Search domain or URL…"
+                        className="h-11 w-full rounded-2xl border border-[var(--border)] bg-white px-4 text-sm text-[var(--text)] shadow-sm outline-none placeholder:text-[rgba(17,24,39,0.35)] focus:ring-4 focus:ring-[var(--ring)]"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      className="h-11 rounded-2xl bg-[var(--brand)] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-ink)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+                    >
+                      Search
+                    </button>
+                  </div>
+
+                  <div className="mt-2 text-xs text-[var(--muted)]">
+                    {mongoReady ? (
+                      <span>
+                        Showing {flagged.length}
+                        {q.trim() ? " matching results" : " latest results"}.
+                      </span>
+                    ) : (
+                      <span>
+                        MongoDB is not configured. Showing a temporary in-memory flagged list for this server instance. Set{" "}
+                        <span className="font-medium">MONGODB_URI</span> (and optionally{" "}
+                        <span className="font-medium">MONGODB_DB</span>) for persistence.
+                      </span>
+                    )}
+                  </div>
+                </form>
+
+                <div className="mt-5 rounded-2xl border border-[var(--border)] bg-white">
+                  {flagged.length > 0 ? (
                     <ul className="divide-y divide-[var(--border)]">
                       {flagged.map((r) => (
                         <li key={r.hostname} className="px-4 py-4">
@@ -180,7 +184,11 @@ export default async function FlaggedPage({
                                   {r.status}
                                 </Badge>
                                 {r.aiVerdict ? (
-                                  <Badge tone={r.aiVerdict === "likely_deceptive" || r.aiVerdict === "suspicious" ? "danger" : "warn"}>
+                                  <Badge
+                                    tone={
+                                      r.aiVerdict === "likely_deceptive" || r.aiVerdict === "suspicious" ? "danger" : "warn"
+                                    }
+                                  >
                                     AI: {String(r.aiVerdict).replace(/_/g, " ")}
                                   </Badge>
                                 ) : null}
@@ -192,12 +200,11 @@ export default async function FlaggedPage({
                               </div>
 
                               <div className="mt-1 text-xs text-[var(--muted)]">
-                                Last seen: <span className="font-medium text-[var(--text)]">{formatWhen(r.lastObservedAtMs)}</span> • Observed {r.timesObserved} time{r.timesObserved === 1 ? "" : "s"}
+                                Last seen: <span className="font-medium text-[var(--text)]">{formatWhen(r.lastObservedAtMs)}</span> •{" "}
+                                Observed {r.timesObserved} time{r.timesObserved === 1 ? "" : "s"}
                               </div>
 
-                              {r.summary ? (
-                                <div className="mt-3 text-sm text-[var(--text)]">{r.summary}</div>
-                              ) : null}
+                              {r.summary ? <div className="mt-3 text-sm text-[var(--text)]">{r.summary}</div> : null}
 
                               <div className="mt-3 rounded-2xl border border-[var(--border)] bg-[rgba(17,24,39,0.02)] p-3">
                                 <div className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]">
@@ -265,17 +272,15 @@ export default async function FlaggedPage({
                     <div className="px-4 py-5 text-sm text-[var(--muted)]">
                       {q.trim()
                         ? "No matches found. Try a different keyword."
-                        : "No flagged sites yet — analyze a few websites and anything with strong risk indicators will appear here."}
+                        : mongoReady
+                          ? "No flagged sites yet — analyze a few websites and anything with strong risk indicators will appear here."
+                          : "No flagged sites yet. (This is a temporary in-memory list until MongoDB is configured.)"}
                     </div>
-                  )
-                ) : (
-                  <div className="px-4 py-5 text-sm text-[var(--muted)]">
-                    MongoDB is not configured yet, so there’s nothing to show here.
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          </FadeIn>
         </section>
       </main>
 

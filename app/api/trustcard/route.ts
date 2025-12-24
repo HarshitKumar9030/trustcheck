@@ -13,8 +13,8 @@ type TrustCardRequest = {
   aiSummary?: string;
 };
 
-const APP_URL_DISPLAY = "trustcheck.agfe.tech";
-const APP_ORIGIN = "https://trustcheck.agfe.tech";
+const APP_URL_DISPLAY = process.env.NEXT_PUBLIC_APP_URL_DISPLAY ?? "trustcheck.agfe.tech";
+const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://trustcheck.agfe.tech";
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));

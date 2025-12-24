@@ -1,4 +1,4 @@
-import { consumeScreenshot, pruneExpiredScreenshots } from "@/lib/screenshotStore";
+import { getScreenshot, pruneExpiredScreenshots, touchScreenshot } from "@/lib/screenshotStore";
 
 export const runtime = "nodejs";
 
@@ -8,7 +8,9 @@ export async function GET(
 ) {
   pruneExpiredScreenshots();
   const { id } = await params;
-  const shot = consumeScreenshot(id);
+  // Do not consume: users may view, swipe, and print multiple times.
+  // Touch extends lifetime while actively used.
+  const shot = touchScreenshot(id, { extendTtlMs: 30 * 60 * 1000, maxAgeMs: 2 * 60 * 60 * 1000 }) ?? getScreenshot(id);
   if (!shot) {
     return new Response("Not found", {
       status: 404,

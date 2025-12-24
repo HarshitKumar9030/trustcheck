@@ -138,10 +138,11 @@ function mapPythonAgentSignals(data: PythonAgentResponse): AgentSignals {
   try {
     const b64 = data.screenshot?.data_base64;
     if (b64 && typeof b64 === "string") {
+      const ttlMs = 30 * 60 * 1000; // 30 minutes
       const mime = (data.screenshot?.mime ?? "image/png").trim() || "image/png";
       const buf = Buffer.from(b64, "base64");
-      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs: 120_000 });
-      screenshot = { url: `/api/screenshot/${id}`, mime, expiresInSeconds: 120 };
+      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
+      screenshot = { url: `/api/screenshot/${id}`, mime, expiresInSeconds: Math.round(ttlMs / 1000) };
     }
   } catch {
     screenshot = null;

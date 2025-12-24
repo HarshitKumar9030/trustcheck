@@ -30,6 +30,21 @@ export type FlaggedSiteRecord = {
   timesObserved: number;
 };
 
+declare global {
+  // Fallback store when MongoDB isn't configured/available.
+  // Best-effort only; resets on server restart.
+  // Keyed by hostname.
+  // eslint-disable-next-line no-var
+  var __trustcheckFlaggedFallback: Map<string, FlaggedSiteRecord> | undefined;
+}
+
+function getFallbackStore(): Map<string, FlaggedSiteRecord> {
+  if (!global.__trustcheckFlaggedFallback) {
+    global.__trustcheckFlaggedFallback = new Map();
+  }
+  return global.__trustcheckFlaggedFallback;
+}
+
 function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
@@ -141,15 +156,30 @@ export async function upsertFlaggedFromAnalysis(
   opts: { observedAtMs?: number } = {}
 ): Promise<void> {
   const db = await getMongoDb();
-  if (!db) return;
-
-  await ensureIndexes();
 
   const observedAtMs =
     typeof opts.observedAtMs === "number" && Number.isFinite(opts.observedAtMs) ? opts.observedAtMs : Date.now();
 
   const doc = buildFlaggedDoc(analysis, observedAtMs);
   if (!doc) return;
+
+  // If MongoDB isn't configured, fall back to an in-memory list so /flagged still works.
+  if (!db) {
+    const store = getFallbackStore();
+    const prev = store.get(doc.hostname);
+    if (prev) {
+      store.set(doc.hostname, {
+        ...doc,
+        firstObservedAtMs: prev.firstObservedAtMs,
+        timesObserved: (prev.timesObserved ?? 0) + 1,
+      });
+    } else {
+      store.set(doc.hostname, doc);
+    }
+    return;
+  }
+
+  await ensureIndexes();
 
   const col = db.collection<FlaggedSiteRecord>("flagged_sites");
   try {
@@ -178,8 +208,9 @@ export async function upsertFlaggedFromAnalysis(
       },
       { upsert: true }
     );
-  } catch {
-    // ignore
+  } catch (e) {
+    // Don't hard-fail /api/analyze, but do log so it can be diagnosed.
+    console.warn("[flagged_sites] upsert failed", e);
   }
 }
 
@@ -188,11 +219,6 @@ export async function queryFlaggedSites(opts: {
   limit?: number;
 }): Promise<FlaggedSiteRecord[]> {
   const db = await getMongoDb();
-  if (!db) return [];
-
-  await ensureIndexes();
-
-  const col = db.collection<FlaggedSiteRecord>("flagged_sites");
 
   const limit = (() => {
     const raw = opts.limit;
@@ -214,13 +240,33 @@ export async function queryFlaggedSites(opts: {
     };
   })();
 
-  try {
-    return await col
-      .find(filter)
-      .sort({ lastObservedAtMs: -1 })
-      .limit(limit)
-      .toArray();
-  } catch {
-    return [];
+  // Mongo-backed query (preferred)
+  if (db) {
+    await ensureIndexes();
+    const col = db.collection<FlaggedSiteRecord>("flagged_sites");
+    try {
+      return await col
+        .find(filter)
+        .sort({ lastObservedAtMs: -1 })
+        .limit(limit)
+        .toArray();
+    } catch (e) {
+      console.warn("[flagged_sites] query failed", e);
+      // fall through to in-memory
+    }
   }
+
+  // In-memory fallback
+  const store = getFallbackStore();
+  const all = Array.from(store.values());
+  const filtered = (() => {
+    if (!q) return all;
+    const needle = q.toLowerCase();
+    return all.filter((r) => {
+      const hay = `${r.hostname} ${r.normalizedUrl} ${(r.summary ?? "")} ${(r.issues ?? []).join(" ")}`.toLowerCase();
+      return hay.includes(needle);
+    });
+  })();
+
+  return filtered.sort((a, b) => (b.lastObservedAtMs ?? 0) - (a.lastObservedAtMs ?? 0)).slice(0, limit);
 }

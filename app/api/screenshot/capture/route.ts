@@ -48,6 +48,8 @@ export async function POST(req: Request) {
 
   // Expected agent contract: POST {url} -> returns image/png OR JSON { mime, data_base64 }
   try {
+    const ttlMs = 30 * 60 * 1000; // 30 minutes
+    const expiresInSeconds = Math.round(ttlMs / 1000);
     const res = await fetchWithTimeout(`${base}/screenshot`, {
       method: "POST",
       headers: { "content-type": "application/json", accept: "image/png,image/jpeg,application/json" },
@@ -64,14 +66,14 @@ export async function POST(req: Request) {
       if (!data?.data_base64) return json({ error: "Invalid screenshot response" }, 502);
       const buf = Buffer.from(data.data_base64, "base64");
       const mime = (data.mime ?? "image/png").trim() || "image/png";
-      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs: 120_000 });
-      return json({ id, url: `/api/screenshot/${id}`, mime, expiresInSeconds: 120 });
+      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
+      return json({ id, url: `/api/screenshot/${id}`, mime, expiresInSeconds });
     }
 
     const arr = new Uint8Array(await res.arrayBuffer());
     const mime = contentType.split(";")[0] || "image/png";
-    const { id } = putScreenshot({ mime, data: arr, ttlMs: 120_000 });
-    return json({ id, url: `/api/screenshot/${id}`, mime, expiresInSeconds: 120 });
+    const { id } = putScreenshot({ mime, data: arr, ttlMs });
+    return json({ id, url: `/api/screenshot/${id}`, mime, expiresInSeconds });
   } catch {
     return json({ error: "Screenshot request failed" }, 502);
   }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { DonateClient } from "@/app/donate/DonateClient";
+import { FadeIn } from "@/app/components/FadeIn";
 
 export const metadata: Metadata = {
   title: "Donate • TrustCheck",
@@ -68,22 +69,24 @@ export default function DonatePage() {
 
       <main className="mx-auto max-w-5xl px-5 pb-16">
         <section className="pt-10 sm:pt-14">
-          <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-            <div className="px-6 py-10 sm:px-10 sm:py-12">
-              <div className="mx-auto max-w-2xl text-center">
-                <h1 className="text-balance text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
-                  Support TrustCheck
-                </h1>
-                <p className="mt-3 text-pretty text-base leading-7 text-[var(--muted)] sm:text-lg">
-                  TrustCheck is self-funded. Donations help cover hosting, crawling, and AI inference costs.
-                </p>
-              </div>
+          <FadeIn>
+            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+              <div className="px-6 py-10 sm:px-10 sm:py-12">
+                <div className="mx-auto max-w-2xl text-center">
+                  <h1 className="text-balance text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
+                    Support TrustCheck
+                  </h1>
+                  <p className="mt-3 text-pretty text-base leading-7 text-[var(--muted)] sm:text-lg">
+                    TrustCheck is self-funded. Donations help cover hosting, crawling, and AI inference costs.
+                  </p>
+                </div>
 
-              <div className="mx-auto mt-8 max-w-3xl">
-                <DonateClient config={config} />
+                <div className="mx-auto mt-8 max-w-3xl">
+                  <DonateClient config={config} />
+                </div>
               </div>
             </div>
-          </div>
+          </FadeIn>
         </section>
       </main>
 

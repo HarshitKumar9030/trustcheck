@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { CopyIcon, PrinterIcon, RefreshCcwIcon } from "lucide-react";
+import { CopyIcon, PrinterIcon, RefreshCcwIcon, ArrowRight } from "lucide-react";
 import { AnimatedActionButton } from "./components/AnimatedActionButton";
 import { loadScanHistory, saveScanHistory, type ScanRecord } from "./lib/scanHistory";
 
@@ -847,12 +847,57 @@ export default function Home() {
     }
   }
 
-  function printReport() {
+  async function preloadImages(urls: string[], timeoutMs = 3500) {
+    const unique = Array.from(new Set(urls.filter(Boolean)));
+    if (unique.length === 0) return;
+    await Promise.all(
+      unique.map(
+        (src) =>
+          new Promise<void>((resolve) => {
+            try {
+              const img = new window.Image();
+              const t = window.setTimeout(() => {
+                try {
+                  img.src = "";
+                } catch {
+                  // ignore
+                }
+                resolve();
+              }, timeoutMs);
+              img.onload = () => {
+                window.clearTimeout(t);
+                resolve();
+              };
+              img.onerror = () => {
+                window.clearTimeout(t);
+                resolve();
+              };
+              img.decoding = "async";
+              img.referrerPolicy = "no-referrer";
+              img.src = src;
+            } catch {
+              resolve();
+            }
+          })
+      )
+    );
+  }
+
+  async function printReport() {
     if (!result) return;
     try {
       setShowRaw(false);
       setShowAiDetails(true);
       setExpandedCrawl(true);
+
+      // Ensure screenshots are loaded (and kept alive) before printing.
+      const urls: string[] = [];
+      if (screenshot?.url) urls.push(screenshot.url);
+      for (const s of timelineShots) {
+        if (s?.url) urls.push(s.url);
+      }
+      await preloadImages(urls);
+
       window.setTimeout(() => window.print(), 50);
     } catch {
       setError("Print failed. Please try again.");
@@ -896,7 +941,12 @@ export default function Home() {
       <Suspense fallback={null}>
         <SearchParamsAutoRun onSharedUrl={handleSharedUrl} />
       </Suspense>
-      <header className="mx-auto max-w-5xl px-5 py-6 print:hidden">
+      <motion.header
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ type: "spring", stiffness: 240, damping: 26, mass: 0.8 }}
+        className="mx-auto max-w-5xl px-5 py-6 print:hidden"
+      >
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
             <Image
@@ -938,15 +988,20 @@ export default function Home() {
             </Link>
           </div>
         </div>
-      </header>
+      </motion.header>
 
       <main className="mx-auto max-w-5xl px-5 pb-16">
         <section className="pt-10 sm:pt-14 print:hidden">
-          <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 260, damping: 26, mass: 0.9 }}
+            className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]"
+          >
             <div className="px-6 py-10 sm:px-10 sm:py-12">
               <div className="mx-auto max-w-2xl text-center">
                 <h1 className="text-balance text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
-                  Clear trust signals for any website
+                  Clear <span className="text-[#00a79d] font-bold">Trust</span> Signals for any website
                 </h1>
                 <p className="mt-3 text-pretty text-base leading-7 text-[var(--muted)] sm:text-lg">
                   A structured trust report built from public signals, crawl evidence, and AI judgment.
@@ -1022,7 +1077,7 @@ export default function Home() {
                 </div>
               </form>
             </div>
-          </div>
+          </motion.div>
         </section>
 
         <AnimatePresence>
@@ -1074,11 +1129,10 @@ export default function Home() {
                       return (
                         <div
                           key={s.id}
-                          className={`rounded-2xl border bg-white px-4 py-4 ${
-                            state === "active"
-                              ? "border-[rgba(47,111,237,0.25)] shadow-[0_10px_30px_rgba(47,111,237,0.08)]"
-                              : "border-[var(--border)]"
-                          }`}
+                          className={`rounded-2xl border bg-white px-4 py-4 ${state === "active"
+                            ? "border-[rgba(47,111,237,0.25)] shadow-[0_10px_30px_rgba(47,111,237,0.08)]"
+                            : "border-[var(--border)]"
+                            }`}
                         >
                           <div className="flex items-start gap-3">
                             <div className="mt-0.5">
@@ -1169,7 +1223,7 @@ export default function Home() {
                         {host}
                       </div>
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                            <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">Source: {agent === "python" ? "TrustCheck Agent" : "Local analyzer"}</span>
+                        <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">Source: {agent === "python" ? "TrustCheck Agent" : "Local analyzer"}</span>
                         <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">{result.cached ? "Cached" : "Fresh"}</span>
                         <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">{new Date(result.analyzedAt).toLocaleString()}</span>
                         {lastRunMs != null ? (
@@ -1184,7 +1238,11 @@ export default function Home() {
                   </div>
 
                   <div className="mt-7 grid gap-6 lg:grid-cols-[1fr_1.25fr]">
-                    <div className="rounded-3xl border border-[var(--border)] bg-white p-6">
+                    <motion.div
+                      whileHover={{ y: -2 }}
+                      transition={{ type: "spring", stiffness: 340, damping: 26, mass: 0.6 }}
+                      className="rounded-3xl border border-[var(--border)] bg-white p-6"
+                    >
                       <div className="flex items-center justify-between gap-4">
                         <div>
                           <div className="text-sm font-medium text-[var(--muted)]">Trust Score</div>
@@ -1246,7 +1304,7 @@ export default function Home() {
                             title="Refresh"
                           >
                             <span className="inline-flex items-center justify-center gap-2">
-                              <RefreshCcwIcon className="h-4 w-4"/>
+                              <RefreshCcwIcon className="h-4 w-4" />
                               Refresh
                             </span>
                           </button>
@@ -1266,7 +1324,7 @@ export default function Home() {
                             className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)] shadow-sm transition hover:bg-[rgba(17,24,39,0.03)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
                           >
                             <span className="inline-flex items-center justify-center gap-2">
-                              <PrinterIcon className="h-4 w-4"/>
+                              <PrinterIcon className="h-4 w-4" />
                               Print
                             </span>
                           </button>
@@ -1292,9 +1350,13 @@ export default function Home() {
                           )}
                         </button>
                       </div>
-                    </div>
+                    </motion.div>
 
-                    <div className="rounded-3xl border border-[var(--border)] bg-white p-6">
+                    <motion.div
+                      whileHover={{ y: -2 }}
+                      transition={{ type: "spring", stiffness: 340, damping: 26, mass: 0.6 }}
+                      className="rounded-3xl border border-[var(--border)] bg-white p-6"
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <div className="text-sm font-semibold text-[var(--text)]">Key findings</div>
@@ -1401,7 +1463,7 @@ export default function Home() {
                           ))}
                         </div>
                       </div>
-                    </div>
+                    </motion.div>
                   </div>
 
                   <div className="mt-6 grid gap-6 lg:grid-cols-2">
@@ -1696,6 +1758,22 @@ export default function Home() {
             </div>
           </section>
         ) : null}
+
+        <section className="mt-10 rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-6 py-7 sm:px-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-[var(--text)]">See something suspicious?</div>
+              <div className="mt-1 text-sm text-[var(--muted)]">Help improve detection by reporting scam URLs.</div>
+            </div>
+            <Link
+              href="/report"
+              className="group inline-flex items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold text-[var(--brand)] hover:text-[var(--brand-ink)] hover:bg-[rgba(17,24,39,0.03)] transition-colors"
+            >
+              Report a Scam
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </section>
 
         <section
           id="disclaimer"

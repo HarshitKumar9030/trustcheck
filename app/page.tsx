@@ -205,7 +205,6 @@ function isFlaggedAnalysis(r: AnalysisResponse): boolean {
   return Boolean(scoreFlag || statusFlag || aiFlag);
 }
 
-// loadScanHistory/saveScanHistory moved to ./lib/scanHistory
 
 function prettyStepLabel(step: ProgressStep | undefined) {
   if (!step) return "Working";
@@ -214,19 +213,37 @@ function prettyStepLabel(step: ProgressStep | undefined) {
 
 function ScoreRing({ score, accent }: { score: number; accent: string }) {
   const p = clamp(Math.round(score), 0, 100);
-  const deg = p * 3.6;
+  // Sizes: mobile 80, sm 112, lg 144
+  const sizes = { mobile: 80, sm: 112, lg: 144 };
+  const strokeWidth = 6;
+
   return (
-    <div
-      className="relative grid h-20 w-20 sm:h-28 sm:w-28 place-items-center rounded-full shrink-0"
-      style={{
-        background: `conic-gradient(${accent} ${deg}deg, rgba(17,24,39,0.08) 0deg)`,
-      }}
-      aria-label={`Trust score ${p} out of 100`}
-    >
-      <div className="grid h-[72px] w-[72px] sm:h-[104px] sm:w-[104px] place-items-center rounded-full bg-[var(--surface)] ring-1 ring-[var(--border)]">
+    <div className="relative shrink-0 h-20 w-20 sm:h-28 sm:w-28 lg:h-36 lg:w-36">
+      <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+        <circle
+          cx="50"
+          cy="50"
+          r="44"
+          fill="none"
+          stroke="rgba(17,24,39,0.08)"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx="50"
+          cy="50"
+          r="44"
+          fill="none"
+          stroke={accent}
+          strokeWidth={strokeWidth}
+          strokeDasharray={2 * Math.PI * 44}
+          strokeDashoffset={2 * Math.PI * 44 * (1 - p / 100)}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text)]">{p}</div>
-          <div className="text-[10px] sm:text-[11px] font-medium text-[var(--muted)]">/ 100</div>
+          <div className="text-2xl sm:text-3xl lg:text-4xl font-semibold tracking-tight text-[var(--text)]">{p}</div>
+          <div className="text-[10px] sm:text-[11px] lg:text-xs font-medium text-[var(--muted)]">/ 100</div>
         </div>
       </div>
     </div>
@@ -1143,115 +1160,103 @@ export default function Home() {
                     <motion.div
                       whileHover={{ y: -2 }}
                       transition={{ type: "spring", stiffness: 340, damping: 26, mass: 0.6 }}
-                      className="rounded-3xl border border-[var(--border)] bg-white p-6"
+                      className="rounded-3xl border border-[var(--border)] bg-white p-4 sm:p-6 overflow-hidden"
                     >
-                      <div className="flex items-center justify-between gap-4">
-                        <div>
-                          <div className="text-sm font-medium text-[var(--muted)]">Trust Score</div>
-                          <div className="mt-2 text-sm text-[var(--muted)]">
+                      {/* Score Header */}
+                      <div className="flex items-center gap-4">
+                        <ScoreRing score={animatedScore} accent={theme.accent} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-xs font-medium text-[var(--muted)] uppercase tracking-wide">Trust Score</div>
+                          <div className="mt-1 text-sm text-[var(--muted)]">
                             {aiJudgment ? (
                               <span>
-                                AI verdict: <span className="font-medium text-[var(--text)]">{aiJudgment.verdict.replace(/_/g, " ")}</span>
+                                AI: <span className="font-semibold text-[var(--text)]">{aiJudgment.verdict.replace(/_/g, " ")}</span>
                               </span>
                             ) : result.aiAnalysis ? (
                               <span>
-                                AI confidence: <span className="font-medium text-[var(--text)] capitalize">{result.aiAnalysis.confidenceLevel}</span>
+                                Confidence: <span className="font-medium text-[var(--text)] capitalize">{result.aiAnalysis.confidenceLevel}</span>
                               </span>
                             ) : (
-                              <span>AI judgment not available.</span>
+                              <span className="text-xs">AI judgment not available</span>
+                            )}
+                          </div>
+                          {/* Badges inline with text on mobile */}
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {aiJudgment?.category && (
+                              <span className="rounded-full bg-[rgba(17,24,39,0.04)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                                {aiJudgment.category}
+                              </span>
+                            )}
+                            {(aiJudgment?.confidence || result.aiAnalysis?.confidenceLevel) && (
+                              <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${theme.chipBg} ${theme.labelColor}`}>
+                                {aiJudgment?.confidence ?? result.aiAnalysis?.confidenceLevel}
+                              </span>
+                            )}
+                            {aiJudgment?.platform && (
+                              <span className="rounded-full bg-[rgba(17,24,39,0.04)] px-2 py-0.5 text-[10px] font-medium text-[var(--muted)]">
+                                {aiJudgment.platform}
+                              </span>
                             )}
                           </div>
                         </div>
-
-                        <ScoreRing score={animatedScore} accent={theme.accent} />
                       </div>
 
-                      <div className="mt-6 flex flex-wrap gap-2">
-                        {aiJudgment?.category ? (
-                          <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
-                            Category: <span className="text-[var(--text)]">{aiJudgment.category}</span>
-                          </span>
-                        ) : null}
-                        {aiJudgment?.confidence ? (
-                          <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${theme.badgeBorder} ${theme.chipBg} ${theme.labelColor}`}>
-                            Confidence: <span className="capitalize">{aiJudgment.confidence}</span>
-                          </span>
-                        ) : result.aiAnalysis?.confidenceLevel ? (
-                          <span className={`rounded-full border px-3 py-1.5 text-xs font-medium ${theme.badgeBorder} ${theme.chipBg} ${theme.labelColor}`}>
-                            Confidence: <span className="capitalize">{result.aiAnalysis.confidenceLevel}</span>
-                          </span>
-                        ) : null}
-                        {aiJudgment?.platform ? (
-                          <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
-                            Platform: <span className="text-[var(--text)]">{aiJudgment.platform}</span>
-                          </span>
-                        ) : null}
-                      </div>
-
-                      <div className="mt-6 flex flex-col gap-3">
+                      {/* Action Buttons - Compact Grid */}
+                      <div className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 print:hidden">
                         <button
                           type="button"
                           onClick={() => void runAnalysis(result.normalizedUrl)}
                           disabled={loading}
-                          className="w-full rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)] shadow-sm transition hover:bg-[rgba(17,24,39,0.03)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)] print:hidden"
+                          className="rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.02)]"
                         >
                           Re-analyze
                         </button>
-                        <div className="grid gap-3 sm:grid-cols-3 print:hidden">
-                          <button
-                            type="button"
-                            onClick={() => void runAnalysis(result.normalizedUrl, { force: true })}
-                            disabled={loading}
-                            className="rounded-2xl bg-[rgba(47,111,237,0.10)] px-4 py-3 text-sm font-semibold text-[var(--brand-ink)] shadow-sm transition hover:bg-[rgba(47,111,237,0.14)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-                            title="Refresh"
-                          >
-                            <span className="inline-flex items-center justify-center gap-2">
-                              <RefreshCcwIcon className="h-4 w-4" />
-                              Refresh
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => void copyJson()}
-                            className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)] shadow-sm transition hover:bg-[rgba(17,24,39,0.03)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-                          >
-                            <span className="inline-flex items-center justify-center gap-2">
-                              <CopyIcon className="h-4 w-4" />
-                              Copy JSON
-                            </span>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => printReport()}
-                            className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm font-semibold text-[var(--text)] shadow-sm transition hover:bg-[rgba(17,24,39,0.03)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-                          >
-                            <span className="inline-flex items-center justify-center gap-2">
-                              <PrinterIcon className="h-4 w-4" />
-                              Print
-                            </span>
-                          </button>
-                        </div>
                         <button
                           type="button"
-                          onClick={() => void downloadTrustCard()}
-                          disabled={generatingCard}
-                          className="w-full rounded-2xl border border-[var(--border)] bg-gradient-to-r from-[rgba(47,111,237,0.05)] to-[rgba(47,111,237,0.02)] px-4 py-3 text-sm font-semibold text-[var(--text)] shadow-sm transition hover:from-[rgba(47,111,237,0.08)] hover:to-[rgba(47,111,237,0.04)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)] flex items-center justify-center gap-2 print:hidden"
+                          onClick={() => void runAnalysis(result.normalizedUrl, { force: true })}
+                          disabled={loading}
+                          className="rounded-xl bg-[rgba(47,111,237,0.08)] px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-[var(--brand-ink)] hover:bg-[rgba(47,111,237,0.12)] flex items-center justify-center gap-1.5"
                         >
-                          {generatingCard ? (
-                            <>
-                              <span className="h-4 w-4 rounded-full border-2 border-[var(--brand)]/40 border-t-[var(--brand)] animate-spin" />
-                              Generating…
-                            </>
-                          ) : (
-                            <>
-                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                              </svg>
-                              Download Trust Card
-                            </>
-                          )}
+                          <RefreshCcwIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Refresh
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void copyJson()}
+                          className="rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.02)] flex items-center justify-center gap-1.5"
+                        >
+                          <CopyIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Copy
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => printReport()}
+                          className="rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.02)] flex items-center justify-center gap-1.5"
+                        >
+                          <PrinterIcon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                          Print
                         </button>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => void downloadTrustCard()}
+                        disabled={generatingCard}
+                        className="mt-2 w-full rounded-xl border border-[var(--border)] bg-gradient-to-r from-[rgba(47,111,237,0.04)] to-transparent px-3 py-2.5 text-xs font-semibold text-[var(--text)] hover:from-[rgba(47,111,237,0.08)] flex items-center justify-center gap-1.5 print:hidden"
+                      >
+                        {generatingCard ? (
+                          <>
+                            <span className="h-3.5 w-3.5 rounded-full border-2 border-[var(--brand)]/30 border-t-[var(--brand)] animate-spin" />
+                            Generating…
+                          </>
+                        ) : (
+                          <>
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
+                            </svg>
+                            Download Trust Card
+                          </>
+                        )}
+                      </button>
                     </motion.div>
 
                     <motion.div
@@ -1538,113 +1543,115 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+              </div >
+            </motion.section >
+          ) : null
+          }
+        </AnimatePresence >
+
+        {
+          result ? (
+            <section className="mt-10 print:hidden" >
+              <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
+                <div className="px-6 py-7 sm:px-8">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--text)]">Site snapshots</div>
+                      <div className="mt-1 text-sm text-[var(--muted)]">1s, 3s, and 5s timeline snapshots (short-lived).</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void captureTimeline()}
+                        disabled={capturingTimeline}
+                        className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)] disabled:opacity-60"
+                      >
+                        {capturingTimeline ? "Capturing timeline…" : "Capture 1s/3s/5s"}
+                      </button>
+                      {timelineShots[timelineIndex]?.expiresInSeconds ? (
+                        <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
+                          Expires in ~{timelineShots[timelineIndex]?.expiresInSeconds}s
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
+                    {timelineShots.length > 0 && timelineShots[timelineIndex]?.url ? (
+                      <a href={timelineShots[timelineIndex].url} target="_blank" rel="noreferrer" className="block">
+                        <img
+                          src={timelineShots[timelineIndex].url}
+                          alt={`Screenshot of ${result.normalizedUrl}`}
+                          className="w-full h-auto"
+                          referrerPolicy="no-referrer"
+                        />
+                      </a>
+                    ) : (
+                      <div className="px-4 py-5 text-sm text-[var(--muted)]">
+                        {timelineError ? (
+                          <span className="text-[rgba(194,65,68,1)]">{timelineError}</span>
+                        ) : capturingTimeline ? (
+                          "Capturing timeline…"
+                        ) : (
+                          "No timeline snapshots yet. Availability depends on the agent and the site."
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {timelineShots.length > 1 ? (
+                    <div className="mt-4 flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div className="text-xs font-medium text-[var(--muted)]">
+                          Showing <span className="text-[var(--text)]">{timelineShots[timelineIndex]?.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setTimelineIndex((i) => (i - 1 + timelineShots.length) % timelineShots.length)}
+                            className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                          >
+                            Prev
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTimelineIndex((i) => (i + 1) % timelineShots.length)}
+                            className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {timelineShots.map((s, idx) => (
+                          <button
+                            key={`${s.url}-${idx}`}
+                            type="button"
+                            onClick={() => setTimelineIndex(idx)}
+                            className={cn(
+                              "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
+                              idx === timelineIndex
+                                ? "border-[rgba(47,111,237,0.35)] bg-[rgba(47,111,237,0.08)] text-[var(--brand)]"
+                                : "border-[var(--border)] bg-white text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                            )}
+                          >
+                            {s.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {timelineShots.length === 0 && screenshot?.url ? (
+                    <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)] px-4 py-3 text-sm text-[var(--muted)]">
+                      A single snapshot is available. Use “Capture 1s/3s/5s” for the timeline.
+                    </div>
+                  ) : null}
+                </div>
               </div>
-            </motion.section>
+            </section>
           ) : null}
-        </AnimatePresence>
-
-        {result ? (
-          <section className="mt-10 print:hidden">
-            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-              <div className="px-6 py-7 sm:px-8">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <div className="text-sm font-semibold text-[var(--text)]">Site snapshots</div>
-                    <div className="mt-1 text-sm text-[var(--muted)]">1s, 3s, and 5s timeline snapshots (short-lived).</div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => void captureTimeline()}
-                      disabled={capturingTimeline}
-                      className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)] disabled:opacity-60"
-                    >
-                      {capturingTimeline ? "Capturing timeline…" : "Capture 1s/3s/5s"}
-                    </button>
-                    {timelineShots[timelineIndex]?.expiresInSeconds ? (
-                      <span className="rounded-full border border-[var(--border)] bg-[rgba(17,24,39,0.02)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
-                        Expires in ~{timelineShots[timelineIndex]?.expiresInSeconds}s
-                      </span>
-                    ) : null}
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white overflow-hidden">
-                  {timelineShots.length > 0 && timelineShots[timelineIndex]?.url ? (
-                    <a href={timelineShots[timelineIndex].url} target="_blank" rel="noreferrer" className="block">
-                      <img
-                        src={timelineShots[timelineIndex].url}
-                        alt={`Screenshot of ${result.normalizedUrl}`}
-                        className="w-full h-auto"
-                        referrerPolicy="no-referrer"
-                      />
-                    </a>
-                  ) : (
-                    <div className="px-4 py-5 text-sm text-[var(--muted)]">
-                      {timelineError ? (
-                        <span className="text-[rgba(194,65,68,1)]">{timelineError}</span>
-                      ) : capturingTimeline ? (
-                        "Capturing timeline…"
-                      ) : (
-                        "No timeline snapshots yet. Availability depends on the agent and the site."
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {timelineShots.length > 1 ? (
-                  <div className="mt-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <div className="text-xs font-medium text-[var(--muted)]">
-                        Showing <span className="text-[var(--text)]">{timelineShots[timelineIndex]?.label}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setTimelineIndex((i) => (i - 1 + timelineShots.length) % timelineShots.length)}
-                          className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                        >
-                          Prev
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setTimelineIndex((i) => (i + 1) % timelineShots.length)}
-                          className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-2">
-                      {timelineShots.map((s, idx) => (
-                        <button
-                          key={`${s.url}-${idx}`}
-                          type="button"
-                          onClick={() => setTimelineIndex(idx)}
-                          className={cn(
-                            "rounded-full border px-3 py-1.5 text-xs font-semibold transition",
-                            idx === timelineIndex
-                              ? "border-[rgba(47,111,237,0.35)] bg-[rgba(47,111,237,0.08)] text-[var(--brand)]"
-                              : "border-[var(--border)] bg-white text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
-                          )}
-                        >
-                          {s.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-
-                {timelineShots.length === 0 && screenshot?.url ? (
-                  <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)] px-4 py-3 text-sm text-[var(--muted)]">
-                    A single snapshot is available. Use “Capture 1s/3s/5s” for the timeline.
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          </section>
-        ) : null}
 
         <section className="mt-10 rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-6 py-7 sm:px-8">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -1678,7 +1685,7 @@ export default function Home() {
             </a>
           </p>
         </section>
-      </main>
+      </main >
 
       <footer className="mx-auto max-w-5xl px-5 pb-10">
         <div className="flex flex-col gap-1 text-xs text-[rgba(17,24,39,0.45)]">
@@ -1693,7 +1700,7 @@ export default function Home() {
           </a>
         </div>
       </footer>
-    </div>
+    </div >
   );
 }
 

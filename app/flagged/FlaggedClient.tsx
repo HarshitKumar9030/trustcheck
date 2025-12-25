@@ -168,7 +168,6 @@ function ThreatCard({ r, index }: { r: FlaggedSiteRecord; index: number }) {
                 )}
             </div>
 
-            {/* Expandable Details */}
             {(r.findings.length > 0 || r.issues.length > 3) && (
                 <>
                     <button
@@ -192,7 +191,6 @@ function ThreatCard({ r, index }: { r: FlaggedSiteRecord; index: number }) {
                                 className="overflow-hidden border-t border-gray-100"
                             >
                                 <div className="p-5 bg-gray-50/50 space-y-4">
-                                    {/* All Issues */}
                                     {r.issues.length > 3 && (
                                         <div>
                                             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">All Issues ({r.issues.length})</div>
@@ -207,7 +205,6 @@ function ThreatCard({ r, index }: { r: FlaggedSiteRecord; index: number }) {
                                         </div>
                                     )}
 
-                                    {/* Findings */}
                                     {r.findings.length > 0 && (
                                         <div>
                                             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Findings</div>
@@ -225,7 +222,6 @@ function ThreatCard({ r, index }: { r: FlaggedSiteRecord; index: number }) {
                                         </div>
                                     )}
 
-                                    {/* Evidence */}
                                     {Object.keys(r.evidence).length > 0 && (
                                         <div>
                                             <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">Evidence</div>
@@ -357,7 +353,7 @@ export function FlaggedClient({
                     </div>
                 </motion.div>
 
-                {/* Threat Cards Grid */}
+                {/* Threat Grid */}
                 {flagged.length > 0 ? (
                     <div className="grid gap-6">
                         {flagged.map((r, index) => (
@@ -387,7 +383,7 @@ export function FlaggedClient({
                     </motion.div>
                 )}
 
-                {/* Pagination */}
+                {/* Paniantion */}
                 {totalPages > 1 && (
                     <motion.div
                         initial={{ opacity: 0, y: 16 }}

@@ -29,7 +29,7 @@ export default function DonatePage() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-8 py-10 sm:px-12 sm:py-14"
+          className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-4 py-6 sm:px-12 sm:py-14"
         >
           <div className="text-center mb-10">
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl mb-3">

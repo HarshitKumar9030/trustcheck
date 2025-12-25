@@ -70,6 +70,13 @@ function sanitizeUpiId(value: string) {
   return value.trim();
 }
 
+
+// truncating long addresses for displaying on smaller screens
+function truncateAddress(addr: string, startChars = 8, endChars = 6): string {
+  if (addr.length <= startChars + endChars + 3) return addr;
+  return `${addr.slice(0, startChars)}...${addr.slice(-endChars)}`;
+}
+
 function buildUpiUri({
   upiId,
   upiName,
@@ -284,7 +291,15 @@ export function DonateClient({ config }: { config: DonateConfig }) {
                   <ExternalLink className="w-4 h-4" />
                 </a>
               ) : (
-                <p className="text-sm text-[var(--muted)]">Payment link not configured</p>
+                <div className="space-y-3">
+                  <p className="text-sm text-[var(--muted)]">Card payment not configured yet.</p>
+                  <div className="p-4 rounded-xl bg-[rgba(47,111,237,0.04)] border border-[rgba(47,111,237,0.1)]">
+                    <p className="text-sm text-[var(--text)] font-medium mb-1">💡 Alternative: Bank Transfer</p>
+                    <p className="text-xs text-[var(--muted)]">
+                      Use UPI for instant bank transfers from HDFC or any other bank account.
+                    </p>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -316,7 +331,10 @@ export function DonateClient({ config }: { config: DonateConfig }) {
                       </div>
 
                       <div className="flex items-center gap-2 p-3 rounded-xl bg-[rgba(17,24,39,0.02)] border border-[var(--border)]">
-                        <code className="flex-1 text-sm font-mono text-[var(--text)] break-all">{config.upiId}</code>
+                        <code className="flex-1 text-sm font-mono text-[var(--text)] truncate sm:break-all sm:whitespace-normal" title={config.upiId}>
+                          <span className="hidden sm:inline">{config.upiId}</span>
+                          <span className="sm:hidden">{truncateAddress(config.upiId, 12, 8)}</span>
+                        </code>
                         <CopyButton value={config.upiId} label="Copy UPI ID" />
                       </div>
 
@@ -360,13 +378,16 @@ export function DonateClient({ config }: { config: DonateConfig }) {
               {cryptoRows.length > 0 ? (
                 <div className="space-y-3">
                   {cryptoRows.map(([symbol, addr]) => (
-                    <div key={symbol} className="flex items-center gap-3 p-3 rounded-xl bg-[rgba(17,24,39,0.02)] border border-[var(--border)]">
+                    <div key={symbol} className="flex items-center gap-2 sm:gap-3 p-3 rounded-xl bg-[rgba(17,24,39,0.02)] border border-[var(--border)]">
                       <div className="shrink-0">
                         {cryptoLogos[symbol] || <div className="w-7 h-7 rounded-full bg-gray-200" />}
                       </div>
-                      <div className="flex-1 min-w-0">
+                      <div className="flex-1 min-w-0 overflow-hidden">
                         <div className="text-xs font-semibold text-[var(--text)] mb-0.5">{symbol}</div>
-                        <code className="text-xs text-[var(--muted)] break-all font-mono">{addr}</code>
+                        <code className="text-xs text-[var(--muted)] font-mono block truncate" title={addr}>
+                          <span className="hidden sm:inline">{addr}</span>
+                          <span className="sm:hidden">{truncateAddress(addr)}</span>
+                        </code>
                       </div>
                       <CopyButton value={addr} label={`Copy ${symbol} address`} />
                     </div>

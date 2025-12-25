@@ -382,7 +382,7 @@ export function DonateClient({ config }: { config: DonateConfig }) {
 
       {/* Footer */}
       <p className="text-center text-xs text-[var(--muted)]">
-        Payments are processed securely. TrustCheck never stores payment details.
+        Payments are processed securely. ScamCheck never stores payment details.
       </p>
     </div>
   );

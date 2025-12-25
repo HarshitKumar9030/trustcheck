@@ -237,14 +237,18 @@ export async function upsertFlaggedFromAnalysis(
 export async function queryFlaggedSites(opts: {
   q?: string;
   limit?: number;
-}): Promise<FlaggedSiteRecord[]> {
+  page?: number;
+}): Promise<{ records: FlaggedSiteRecord[]; total: number; page: number; totalPages: number }> {
   const db = await getMongoDb();
 
   const limit = (() => {
     const raw = opts.limit;
-    if (typeof raw !== "number" || !Number.isFinite(raw)) return 50;
-    return clamp(Math.round(raw), 1, 200);
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return 12;
+    return clamp(Math.round(raw), 1, 50);
   })();
+
+  const page = Math.max(1, opts.page ?? 1);
+  const skip = (page - 1) * limit;
 
   const q = (opts.q ?? "").trim();
 
@@ -255,7 +259,6 @@ export async function queryFlaggedSites(opts: {
       $or: [
         { hostname: { $regex: escaped, $options: "i" } },
         { normalizedUrl: { $regex: escaped, $options: "i" } },
-        { $text: { $search: q } },
       ],
     };
   })();
@@ -265,11 +268,21 @@ export async function queryFlaggedSites(opts: {
     await ensureIndexes();
     const col = db.collection<FlaggedSiteRecord>("flagged_sites");
     try {
-      return await col
-        .find(filter)
-        .sort({ lastObservedAtMs: -1 })
-        .limit(limit)
-        .toArray();
+      const [records, total] = await Promise.all([
+        col
+          .find(filter)
+          .sort({ lastObservedAtMs: -1 })
+          .skip(skip)
+          .limit(limit)
+          .toArray(),
+        col.countDocuments(filter),
+      ]);
+      return { 
+        records, 
+        total, 
+        page, 
+        totalPages: Math.ceil(total / limit) 
+      };
     } catch (e) {
       console.warn("[flagged_sites] query failed", e);
       // fall through to in-memory
@@ -288,5 +301,14 @@ export async function queryFlaggedSites(opts: {
     });
   })();
 
-  return filtered.sort((a, b) => (b.lastObservedAtMs ?? 0) - (a.lastObservedAtMs ?? 0)).slice(0, limit);
+  const sorted = filtered.sort((a, b) => (b.lastObservedAtMs ?? 0) - (a.lastObservedAtMs ?? 0));
+  const total = sorted.length;
+  const records = sorted.slice(skip, skip + limit);
+  
+  return { 
+    records, 
+    total, 
+    page, 
+    totalPages: Math.ceil(total / limit) 
+  };
 }

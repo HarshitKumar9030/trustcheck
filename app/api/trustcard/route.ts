@@ -13,8 +13,8 @@ type TrustCardRequest = {
   aiSummary?: string;
 };
 
-const APP_URL_DISPLAY = process.env.NEXT_PUBLIC_APP_URL_DISPLAY ?? "trustcheck.agfe.tech";
-const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://trustcheck.agfe.tech";
+const APP_URL_DISPLAY = process.env.NEXT_PUBLIC_APP_URL_DISPLAY ?? "scamcheck.tech";
+const APP_ORIGIN = process.env.NEXT_PUBLIC_APP_ORIGIN ?? "https://scamcheck.tech";
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -147,7 +147,7 @@ export async function POST(req: Request) {
               h(
                 "div",
                 { style: { fontSize: 26, fontWeight: 800, color: "#111827", lineHeight: 1.1 } },
-                "TrustCheck"
+                "ScamCheck"
               ),
               h(
                 "div",

@@ -23,8 +23,6 @@ const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 4; // 4 days - saves AI costs
 const CACHE_VERSION = "v4";
 const ENABLE_CACHE = process.env.ENABLE_CACHE === "true";
 
-const memoryCache = new Map<string, AnalysisCacheRecord>();
-
 function makeCacheKey(hostname: string): string {
   return `${hostname.toLowerCase()}::${CACHE_VERSION}`;
 }
@@ -279,40 +277,42 @@ async function tryAnalyzeViaPythonAgent(
 async function getCached(cacheKey: string): Promise<AnalysisCacheRecord | null> {
   const now = Date.now();
 
-  const mem = memoryCache.get(cacheKey);
-  if (mem && mem.expireAtMs > now) return mem;
-
   const db = await getMongoDb();
   if (!db) return null;
 
-  const col = db.collection<AnalysisCacheRecord>("analyses");
+  const col = db.collection<AnalysisCacheRecord>("analysis_cache");
 
-  // Best-effort TTL index
+  // Best-effort indexes
   try {
-    await col.createIndex({ expireAtMs: 1 }, { expireAfterSeconds: 0 });
-    await col.createIndex({ cacheKey: 1, analyzedAtMs: -1 });
+    await col.createIndex({ cacheKey: 1 }, { unique: true });
+    await col.createIndex({ expireAtMs: 1 });
   } catch {
     // ignore
   }
 
-  const doc = await col.findOne(
-    { cacheKey, expireAtMs: { $gt: now } },
-    { sort: { analyzedAtMs: -1 } }
-  );
+  const doc = await col.findOne({ cacheKey });
+  
+  // If no doc found or cache is expired (>4 days old), return null to trigger fresh analysis
+  if (!doc || doc.expireAtMs <= now) {
+    return null;
+  }
 
-  if (!doc) return null;
   return doc;
 }
 
 async function setCached(record: AnalysisCacheRecord): Promise<void> {
-  memoryCache.set(record.cacheKey, record);
-
   const db = await getMongoDb();
   if (!db) return;
 
-  const col = db.collection<AnalysisCacheRecord>("analyses");
+  const col = db.collection<AnalysisCacheRecord>("analysis_cache");
+  
   try {
-    await col.insertOne(record);
+    // Upsert: replace any existing cache for this key
+    await col.updateOne(
+      { cacheKey: record.cacheKey },
+      { $set: record },
+      { upsert: true }
+    );
   } catch {
     // ignore
   }
@@ -368,6 +368,12 @@ export async function POST(req: Request) {
   if (!force && ENABLE_CACHE) {
     const cached = await getCached(cacheKey);
     if (cached) {
+      // Mark response as from ScamCheck Database cache
+      const cachedAgentSignals = {
+        ...stripEphemeralFromAgentSignals(cached.agentSignals) ?? { agent: "node" },
+        agentSource: "ScamCheck Database", // Indicates cached analysis
+      };
+
       const response: AnalysisResponse = {
         normalizedUrl: cached.normalizedUrl,
         score: cached.score,
@@ -376,13 +382,17 @@ export async function POST(req: Request) {
         cached: true,
         analyzedAt: new Date(cached.analyzedAtMs).toISOString(),
         aiAnalysis: cached.aiAnalysis,
-        agentSignals: stripEphemeralFromAgentSignals(cached.agentSignals) ?? { agent: "node" },
+        agentSignals: cachedAgentSignals,
       };
 
       // Public flagged list is backed by MongoDB. Best-effort persistence.
       if (isFlaggedAnalysis(response)) {
         await upsertFlaggedFromAnalysis(response, { observedAtMs: Date.now() });
       }
+
+      // Note: Fresh screenshots are not captured for cached results.
+      // The Python agent would need to run again to capture new screenshots.
+      // This is a conscious trade-off to save AI/analysis costs.
       return NextResponse.json(response);
     }
   }

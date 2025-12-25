@@ -11,7 +11,7 @@ export default function DonatePage() {
     cardUrl: process.env.NEXT_PUBLIC_DONATE_CARD_URL ?? "",
     cryptoUrl: process.env.NEXT_PUBLIC_DONATE_CRYPTO_URL ?? "",
     upiId: process.env.NEXT_PUBLIC_DONATE_UPI_ID ?? "",
-    upiName: process.env.NEXT_PUBLIC_DONATE_UPI_NAME ?? "TrustCheck",
+    upiName: process.env.NEXT_PUBLIC_DONATE_UPI_NAME ?? "ScamCheck",
     cryptoAddresses: {
       BTC: process.env.NEXT_PUBLIC_DONATE_BTC ?? "",
       ETH: process.env.NEXT_PUBLIC_DONATE_ETH ?? "",
@@ -22,7 +22,7 @@ export default function DonatePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <NavbarWrapper subtitle="Support TrustCheck" />
+      <NavbarWrapper subtitle="Support ScamCheck" />
 
       <main className="mx-auto max-w-3xl px-5 pb-16 pt-8">
         <motion.div
@@ -33,10 +33,10 @@ export default function DonatePage() {
         >
           <div className="text-center mb-10">
             <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl mb-3">
-              Support TrustCheck
+              Support ScamCheck
             </h1>
             <p className="text-[var(--muted)] leading-relaxed max-w-lg mx-auto">
-              TrustCheck is self-funded. Your support helps cover hosting, crawling, and AI inference costs.
+              ScamCheck is self-funded. Your support helps cover hosting, crawling, and AI inference costs.
             </p>
           </div>
 
@@ -46,14 +46,14 @@ export default function DonatePage() {
 
       <footer className="mx-auto max-w-3xl px-5 pb-10">
         <div className="flex flex-col gap-1 text-xs text-[rgba(17,24,39,0.45)]">
-          <span>Thank you for keeping TrustCheck running.</span>
+          <span>Thank you for keeping ScamCheck running.</span>
           <a
-            href="https://trustcheck.agfe.tech"
+            href="https://scamcheck.tech"
             target="_blank"
             rel="noreferrer"
             className="w-fit text-[rgba(47,111,237,0.85)] hover:text-[rgba(47,111,237,1)]"
           >
-            trustcheck.agfe.tech
+            scamcheck.tech
           </a>
         </div>
       </footer>

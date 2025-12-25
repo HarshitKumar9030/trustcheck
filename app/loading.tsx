@@ -7,7 +7,7 @@ export default function Loading() {
         <div className="flex items-center gap-4">
           <Loader size={56} tone="brand" label="Loading" />
           <div>
-            <div className="text-sm font-semibold text-[var(--text)]">Loading TrustCheck…</div>
+            <div className="text-sm font-semibold text-[var(--text)]">Loading ScamCheck…</div>
             <div className="mt-1 text-sm text-[var(--muted)]">Getting everything ready.</div>
           </div>
         </div>

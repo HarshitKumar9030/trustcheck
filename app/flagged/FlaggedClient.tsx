@@ -118,20 +118,20 @@ function ThreatCard({ r, index }: { r: FlaggedSiteRecord; index: number }) {
                                 <h3 className="font-semibold text-gray-900 text-base truncate">{r.hostname}</h3>
                                 <RiskBadge level={riskLevel} />
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                    <Clock className="w-3 h-3" />
+                            <div className="flex items-center gap-2 sm:gap-3 flex-wrap text-xs text-gray-500">
+                                <span className="flex items-center gap-1 shrink-0">
+                                    <Clock className="w-3 h-3 shrink-0" />
                                     {formatWhen(r.lastObservedAtMs)}
                                 </span>
                                 {r.aiVerdict && (
-                                    <span className="flex items-center gap-1">
-                                        <Zap className="w-3 h-3 text-gray-400" />
-                                        <span className="capitalize">{r.aiVerdict.replace(/_/g, " ")}</span>
+                                    <span className="flex items-center gap-1 shrink-0">
+                                        <Zap className="w-3 h-3 text-gray-400 shrink-0" />
+                                        <span className="capitalize truncate max-w-[100px] sm:max-w-none">{r.aiVerdict.replace(/_/g, " ")}</span>
                                     </span>
                                 )}
-                                <span className="flex items-center gap-1 text-gray-400">
-                                    <Globe className="w-3 h-3" />
-                                    Agent: TrustCheck Database
+                                <span className="hidden sm:flex items-center gap-1 text-gray-400 shrink-0">
+                                    <Globe className="w-3 h-3 shrink-0" />
+                                    ScamCheck DB
                                 </span>
                             </div>
                         </div>
@@ -258,11 +258,17 @@ function ThreatCard({ r, index }: { r: FlaggedSiteRecord; index: number }) {
 export function FlaggedClient({
     flagged,
     q,
-    mongoReady
+    mongoReady,
+    page,
+    totalPages,
+    total,
 }: {
     flagged: FlaggedSiteRecord[];
     q: string;
     mongoReady: boolean;
+    page: number;
+    totalPages: number;
+    total: number;
 }) {
     const highRiskCount = flagged.filter(r => getRiskLevel(r) === "high").length;
 
@@ -280,7 +286,7 @@ export function FlaggedClient({
                         <span className="flex items-center justify-center w-6 h-6 rounded-lg bg-[var(--surface)] border border-[var(--border)] text-[var(--muted)]">
                             <Shield className="w-3.5 h-3.5" />
                         </span>
-                        <span className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">TrustCheck Database</span>
+                        <span className="text-xs font-medium text-[var(--muted)] uppercase tracking-wider">ScamCheck Database</span>
                     </div>
                     <h1 className="text-3xl font-bold tracking-tight text-[var(--text)] mb-3">
                         Flagged Threats
@@ -377,6 +383,43 @@ export function FlaggedClient({
                             className="mt-6 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--brand)] text-white text-sm font-semibold hover:bg-[var(--brand-ink)] transition-colors"
                         >
                             Analyze Website <ArrowUpRight className="w-4 h-4" />
+                        </Link>
+                    </motion.div>
+                )}
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3 }}
+                        className="mt-8 flex items-center justify-center gap-2"
+                    >
+                        <Link
+                            href={`/flagged?${new URLSearchParams({ ...(q ? { q } : {}), page: String(Math.max(1, page - 1)) }).toString()}`}
+                            className={`px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${page <= 1
+                                ? "border-[var(--border)] text-[var(--muted)] cursor-not-allowed pointer-events-none opacity-50"
+                                : "border-[var(--border)] text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                                }`}
+                        >
+                            Previous
+                        </Link>
+
+                        <div className="flex items-center gap-1 px-4 py-2 text-sm text-[var(--muted)]">
+                            <span className="font-medium text-[var(--text)]">{page}</span>
+                            <span>of</span>
+                            <span className="font-medium text-[var(--text)]">{totalPages}</span>
+                            <span className="ml-2 text-xs">({total} total)</span>
+                        </div>
+
+                        <Link
+                            href={`/flagged?${new URLSearchParams({ ...(q ? { q } : {}), page: String(Math.min(totalPages, page + 1)) }).toString()}`}
+                            className={`px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${page >= totalPages
+                                ? "border-[var(--border)] text-[var(--muted)] cursor-not-allowed pointer-events-none opacity-50"
+                                : "border-[var(--border)] text-[var(--text)] hover:bg-[rgba(17,24,39,0.03)]"
+                                }`}
+                        >
+                            Next
                         </Link>
                     </motion.div>
                 )}

@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { CopyIcon, PrinterIcon, RefreshCcwIcon, ArrowRight } from "lucide-react";
+import { CopyIcon, PrinterIcon, RefreshCcwIcon, ArrowRight, Check, X, AlertTriangle, Info } from "lucide-react";
 import { AnimatedActionButton } from "./components/AnimatedActionButton";
 import { Navbar } from "./components/Navbar";
 import { loadScanHistory, saveScanHistory, type ScanRecord } from "./lib/scanHistory";
@@ -217,16 +217,16 @@ function ScoreRing({ score, accent }: { score: number; accent: string }) {
   const deg = p * 3.6;
   return (
     <div
-      className="relative grid h-28 w-28 place-items-center rounded-full"
+      className="relative grid h-20 w-20 sm:h-28 sm:w-28 place-items-center rounded-full shrink-0"
       style={{
         background: `conic-gradient(${accent} ${deg}deg, rgba(17,24,39,0.08) 0deg)`,
       }}
       aria-label={`Trust score ${p} out of 100`}
     >
-      <div className="grid h-[104px] w-[104px] place-items-center rounded-full bg-[var(--surface)] ring-1 ring-[var(--border)]">
+      <div className="grid h-[72px] w-[72px] sm:h-[104px] sm:w-[104px] place-items-center rounded-full bg-[var(--surface)] ring-1 ring-[var(--border)]">
         <div className="text-center">
-          <div className="text-3xl font-semibold tracking-tight text-[var(--text)]">{p}</div>
-          <div className="text-[11px] font-medium text-[var(--muted)]">/ 100</div>
+          <div className="text-2xl sm:text-3xl font-semibold tracking-tight text-[var(--text)]">{p}</div>
+          <div className="text-[10px] sm:text-[11px] font-medium text-[var(--muted)]">/ 100</div>
         </div>
       </div>
     </div>
@@ -382,69 +382,17 @@ function useWorkflowProgress(active: boolean, expectedMs: number) {
 }
 
 function Icon({ verdict }: { verdict: Verdict }) {
-  const common = "h-5 w-5";
+  const size = 18;
   if (verdict === "good") {
-    return (
-      <svg
-        className={`${common} text-[var(--success)]`}
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M16.704 5.29a1 1 0 010 1.414l-7.22 7.22a1 1 0 01-1.414 0L3.296 9.15a1 1 0 011.414-1.414l3.017 3.017 6.513-6.513a1 1 0 011.414 0z"
-          clipRule="evenodd"
-        />
-      </svg>
-    );
+    return <Check className="w-[18px] h-[18px] shrink-0 text-[var(--success)]" strokeWidth={2.5} />;
   }
   if (verdict === "bad") {
-    return (
-      <svg
-        className={`${common} text-[var(--danger)]`}
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M10 18a8 8 0 100-16 8 8 0 000 16zm2.707-10.707a1 1 0 00-1.414-1.414L10 7.172 8.707 5.879a1 1 0 10-1.414 1.414L8.586 8.586 7.293 9.879a1 1 0 101.414 1.414L10 10l1.293 1.293a1 1 0 001.414-1.414L11.414 8.586l1.293-1.293z"
-          clipRule="evenodd"
-        />
-      </svg>
-    );
+    return <X className="w-[18px] h-[18px] shrink-0 text-[var(--danger)]" strokeWidth={2.5} />;
   }
   if (verdict === "warn") {
-    return (
-      <svg
-        className={`${common} text-[var(--warning)]`}
-        viewBox="0 0 20 20"
-        fill="currentColor"
-        aria-hidden="true"
-      >
-        <path
-          fillRule="evenodd"
-          d="M8.257 3.099c.765-1.36 2.72-1.36 3.485 0l6.518 11.594c.75 1.333-.213 2.99-1.742 2.99H3.48c-1.53 0-2.492-1.657-1.742-2.99L8.257 3.1zM10 7a1 1 0 00-1 1v3a1 1 0 002 0V8a1 1 0 00-1-1zm0 8a1.25 1.25 0 100-2.5A1.25 1.25 0 0010 15z"
-          clipRule="evenodd"
-        />
-      </svg>
-    );
+    return <AlertTriangle className="w-[18px] h-[18px] shrink-0 text-[var(--warning)]" strokeWidth={2} />;
   }
-  return (
-    <svg
-      className={`${common} text-[rgba(17,24,39,0.35)]`}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M10 18a8 8 0 100-16 8 8 0 000 16zm0-11a1 1 0 00-1 1v1a1 1 0 002 0V8a1 1 0 00-1-1zm0 7a1 1 0 100-2 1 1 0 000 2z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
+  return <Info className="w-[18px] h-[18px] shrink-0 text-[rgba(17,24,39,0.4)]" strokeWidth={2} />;
 }
 
 export default function Home() {
@@ -1176,12 +1124,12 @@ export default function Home() {
                       <div className="mt-1 text-xl font-semibold tracking-tight text-[var(--text)] truncate">
                         {host}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                        <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">Source: {agent === "python" ? "TrustCheck Agent" : "Local analyzer"}</span>
-                        <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">{result.cached ? "Cached" : "Fresh"}</span>
-                        <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">{new Date(result.analyzedAt).toLocaleString()}</span>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5 sm:gap-2 text-[11px] sm:text-xs text-[var(--muted)]">
+                        <span className="rounded-full border border-[var(--border)] bg-white px-2 sm:px-3 py-1 sm:py-1.5 truncate max-w-[140px] sm:max-w-none">{agent === "python" ? "ScamCheck" : "Local"}</span>
+                        <span className="rounded-full border border-[var(--border)] bg-white px-2 sm:px-3 py-1 sm:py-1.5">{result.cached ? "Cached" : "Fresh"}</span>
+                        <span className="hidden sm:inline-flex rounded-full border border-[var(--border)] bg-white px-3 py-1.5">{new Date(result.analyzedAt).toLocaleString()}</span>
                         {lastRunMs != null ? (
-                          <span className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5">Run time: {formatDurationMs(lastRunMs)}</span>
+                          <span className="hidden sm:inline-flex rounded-full border border-[var(--border)] bg-white px-3 py-1.5">Run: {formatDurationMs(lastRunMs)}</span>
                         ) : null}
                       </div>
                     </div>
@@ -1405,12 +1353,12 @@ export default function Home() {
 
                         <div className="mt-5 grid gap-3 sm:grid-cols-2">
                           {result.explainability.map((item) => (
-                            <div key={item.key} className="rounded-2xl border border-[var(--border)] bg-white px-4 py-4">
+                            <div key={item.key} className="rounded-2xl border border-[var(--border)] bg-white px-4 py-4 overflow-hidden">
                               <div className="flex items-start gap-3">
                                 <Icon verdict={item.verdict} />
-                                <div>
-                                  <div className="text-sm font-semibold text-[var(--text)]">{item.label}</div>
-                                  <div className="mt-1 text-sm text-[var(--muted)]">{item.detail}</div>
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-sm font-semibold text-[var(--text)] truncate">{item.label}</div>
+                                  <div className="mt-1 text-sm text-[var(--muted)] line-clamp-3">{item.detail}</div>
                                 </div>
                               </div>
                             </div>
@@ -1421,94 +1369,79 @@ export default function Home() {
                   </div>
 
                   <div className="mt-6 grid gap-6 lg:grid-cols-2">
-                    <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-                      <div className="px-6 py-7 sm:px-8">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
+                    {/* External Reviews */}
+                    <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] overflow-hidden">
+                      <div className="px-4 py-5 sm:px-6">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
                             <div className="text-sm font-semibold text-[var(--text)]">External reviews</div>
-                            <div className="mt-1 text-sm text-[var(--muted)]">Public reputation signals (best-effort).</div>
+                            <div className="text-xs text-[var(--muted)] truncate">Public reputation signals</div>
                           </div>
-                          <div className="rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--muted)]">
+                          <div className="shrink-0 rounded-full border border-[var(--border)] bg-white px-2 py-1 text-xs font-medium text-[var(--muted)]">
                             {agent === "python" && externalReviewsText ? "Agent" : "Limited"}
                           </div>
                         </div>
-
-                        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-4">
+                        <div className="mt-3 rounded-xl border border-[var(--border)] bg-white p-3 overflow-hidden">
                           {externalReviewsText ? (
-                            <pre className="whitespace-pre-wrap text-sm text-[var(--text)] leading-6">
+                            <p className="text-sm text-[var(--text)] leading-relaxed break-words whitespace-pre-wrap">
                               {externalReviewsText}
-                            </pre>
+                            </p>
                           ) : (
-                            <div className="text-sm text-[var(--muted)]">
-                              No external review text was returned for this run.
-                            </div>
+                            <p className="text-sm text-[var(--muted)]">No external reviews available.</p>
                           )}
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-                      <div className="px-6 py-7 sm:px-8">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
+                    {/* Crawl Snapshot */}
+                    <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] overflow-hidden">
+                      <div className="px-4 py-5 sm:px-6">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="min-w-0">
                             <div className="text-sm font-semibold text-[var(--text)]">Crawl snapshot</div>
-                            <div className="mt-1 text-sm text-[var(--muted)]">Internal pages sampled for evidence.</div>
+                            <div className="text-xs text-[var(--muted)] truncate">Internal pages sampled</div>
                           </div>
                           <button
                             type="button"
                             onClick={() => setExpandedCrawl((v) => !v)}
-                            className="rounded-full border border-[var(--border)] bg-white px-3 py-2 text-sm font-semibold text-[var(--brand)] hover:text-[var(--brand-ink)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+                            className="shrink-0 rounded-full border border-[var(--border)] bg-white px-2.5 py-1 text-xs font-semibold text-[var(--brand)]"
                           >
                             {expandedCrawl ? "Collapse" : "Expand"}
                           </button>
                         </div>
-
-                        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-white p-4">
+                        <div className="mt-3 rounded-xl border border-[var(--border)] bg-white p-3 overflow-hidden">
                           {crawlSnapshot ? (
                             <>
-                              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--muted)]">
-                                <span>
-                                  Requested: <span className="font-medium text-[var(--text)]">{crawlSnapshot.pagesRequested}</span>
-                                </span>
-                                <span>
-                                  Fetched: <span className="font-medium text-[var(--text)]">{crawlSnapshot.pagesFetched}</span>
-                                </span>
+                              <div className="flex flex-wrap gap-3 text-xs text-[var(--muted)] mb-2">
+                                <span>Requested: <strong className="text-[var(--text)]">{crawlSnapshot.pagesRequested}</strong></span>
+                                <span>Fetched: <strong className="text-[var(--text)]">{crawlSnapshot.pagesFetched}</strong></span>
                               </div>
                               {hasCrawlPages ? (
-                                <div className="mt-3 space-y-2">
-                                  {(expandedCrawl ? crawlPages : crawlPages.slice(0, 6)).map((p) => (
+                                <div className="space-y-1.5 max-h-[240px] overflow-y-auto">
+                                  {(expandedCrawl ? crawlPages : crawlPages.slice(0, 4)).map((p) => (
                                     <a
                                       key={p.url}
                                       href={p.finalUrl ?? p.url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="block max-w-full rounded-xl border border-[var(--border)] bg-[rgba(17,24,39,0.01)] px-3 py-2 hover:bg-[rgba(17,24,39,0.03)]"
+                                      className="block rounded-lg border border-[var(--border)] px-2.5 py-1.5 hover:bg-[rgba(17,24,39,0.02)] overflow-hidden"
                                     >
-                                      <div className="flex items-center justify-between gap-3">
-                                        <div className="min-w-0">
-                                          <div className="w-full truncate text-sm font-medium text-[var(--text)]" title={p.url}>
-                                            {p.url}
-                                          </div>
-                                          <div className="mt-0.5 w-full truncate text-xs text-[var(--muted)]" title={p.contentType ?? "unknown content-type"}>
-                                            {p.contentType ?? "unknown content-type"}
-                                          </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-xs font-medium text-[var(--text)] truncate">{p.url}</div>
+                                          <div className="text-[10px] text-[var(--muted)] truncate">{p.contentType ?? "unknown"}</div>
                                         </div>
-                                        <div className="shrink-0 rounded-full border border-[var(--border)] bg-white px-2.5 py-1 text-xs font-medium text-[var(--muted)]">
-                                          {p.httpStatus ?? "—"}
-                                        </div>
+                                        <span className="shrink-0 text-xs font-medium text-[var(--muted)]">{p.httpStatus ?? "—"}</span>
                                       </div>
-                                      {p.fetchNote ? (
-                                        <div className="mt-1 break-words text-xs text-[var(--muted)]">{p.fetchNote}</div>
-                                      ) : null}
                                     </a>
                                   ))}
                                 </div>
                               ) : (
-                                <div className="mt-3 text-sm text-[var(--muted)]">No crawl data was returned for this run.</div>
+                                <p className="text-sm text-[var(--muted)]">No crawl data available.</p>
                               )}
                             </>
                           ) : (
-                            <div className="text-sm text-[var(--muted)]">No crawl data was returned for this run.</div>
+                            <p className="text-sm text-[var(--muted)]">No crawl data available.</p>
                           )}
                         </div>
                       </div>
@@ -1522,7 +1455,7 @@ export default function Home() {
                         {result.agentSignals.warnings.slice(0, 8).map((w, i) => (
                           <li key={i} className="flex items-start gap-2">
                             <span className="text-[var(--warning)] mt-0.5">•</span>
-                            {w}
+                            <span className="break-words">{w}</span>
                           </li>
                         ))}
                       </ul>
@@ -1596,7 +1529,7 @@ export default function Home() {
                             transition={{ duration: 0.2 }}
                             className="mt-5 rounded-2xl border border-[var(--border)] bg-white p-4"
                           >
-                            <pre className="whitespace-pre-wrap text-xs leading-6 text-[var(--text)]">
+                            <pre className="whitespace-pre-wrap break-all text-xs leading-6 text-[var(--text)] overflow-x-auto max-w-full">
                               {JSON.stringify(result, null, 2)}
                             </pre>
                           </motion.div>
@@ -1735,7 +1668,7 @@ export default function Home() {
         >
           <div className="text-sm font-semibold text-[var(--text)]">Disclaimer</div>
           <p className="mt-2 leading-7">
-            TrustCheck summarizes publicly observable signals (HTTPS/TLS, redirects, domain age, headers, and crawl evidence).
+            ScamCheck summarizes publicly observable signals (HTTPS/TLS, redirects, domain age, headers, and crawl evidence).
             It does not make legal or factual claims about any website.{" "}
             <a
               href="/disclaimer"
@@ -1751,12 +1684,12 @@ export default function Home() {
         <div className="flex flex-col gap-1 text-xs text-[rgba(17,24,39,0.45)]">
           <span>Designed to help you think clearly, not to accuse.</span>
           <a
-            href="https://trustcheck.agfe.tech"
+            href="https://scamcheck.tech"
             target="_blank"
             rel="noreferrer"
             className="w-fit text-[rgba(47,111,237,0.85)] hover:text-[rgba(47,111,237,1)]"
           >
-            trustcheck.agfe.tech
+            scamcheck.tech
           </a>
         </div>
       </footer>

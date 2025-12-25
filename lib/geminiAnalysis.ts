@@ -31,7 +31,7 @@ export type WebsiteData = {
   pagesCrawled?: number;
 };
 
-const ANALYSIS_PROMPT = `You are TrustCheck AI, an expert website trust and safety analyst. Your job is to assess website trust indicators based ONLY on the provided signals.
+const ANALYSIS_PROMPT = `You are ScamCheck AI, an expert website trust and safety analyst. Your job is to assess website trust indicators based ONLY on the provided signals.
 
 IMPORTANT GUIDELINES:
 - Be calm, factual, and non-accusatory

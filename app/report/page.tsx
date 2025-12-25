@@ -224,7 +224,7 @@ export default function ReportScamPage() {
                             </button>
 
                             <p className="text-center text-xs text-gray-400 mt-4">
-                                Protected by TrustCheck Security
+                                Protected by ScamCheck Security
                             </p>
                         </form>
                     </div>

@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TrustCheck",
+  title: "ScamCheck",
   description: "Automated trust analysis based on public signals.",
 };
 

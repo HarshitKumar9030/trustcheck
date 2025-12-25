@@ -52,7 +52,7 @@ export function Navbar({ subtitle = "Website trust analysis", flaggedCount }: Na
                             >
                                 <Image
                                     src="/trustcheck.png"
-                                    alt="TrustCheck"
+                                    alt="ScamCheck"
                                     width={36}
                                     height={36}
                                     className="rounded-xl ring-1 ring-[var(--border)] shadow-[0_4px_20px_rgba(17,24,39,0.06)]"
@@ -60,7 +60,7 @@ export function Navbar({ subtitle = "Website trust analysis", flaggedCount }: Na
                             </motion.div>
                             <div>
                                 <div className="text-sm font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
-                                    TrustCheck
+                                    ScamCheck
                                 </div>
                                 <div className="text-xs text-[var(--muted)]">{subtitle}</div>
                             </div>

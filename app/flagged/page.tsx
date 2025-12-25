@@ -15,15 +15,25 @@ export default async function FlaggedPage({
     const qRaw = sp.q;
     const q = Array.isArray(qRaw) ? qRaw[0] : (qRaw ?? "");
 
+    const pageRaw = sp.page;
+    const page = Math.max(1, parseInt(Array.isArray(pageRaw) ? pageRaw[0] : (pageRaw ?? "1"), 10) || 1);
+
     const db = await getMongoDb();
     const mongoReady = Boolean(db);
 
-    const flagged = await queryFlaggedSites({ q, limit: 60 });
+    const { records, total, totalPages } = await queryFlaggedSites({ q, page, limit: 12 });
 
     return (
-        <div className="min-h-screen bg-[#FDFDFD]">
+        <div className="min-h-screen bg-[var(--bg)]">
             <NavbarWrapper subtitle="Threat Database" />
-            <FlaggedClient flagged={flagged} q={q} mongoReady={mongoReady} />
+            <FlaggedClient
+                flagged={records}
+                q={q}
+                mongoReady={mongoReady}
+                page={page}
+                totalPages={totalPages}
+                total={total}
+            />
         </div>
     );
 }

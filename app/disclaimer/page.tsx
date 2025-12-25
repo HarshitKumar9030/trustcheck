@@ -24,7 +24,7 @@ export default function DisclaimerPage() {
             <section>
               <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">Purpose</h2>
               <p>
-                TrustCheck helps you make more informed decisions when visiting unfamiliar websites.
+                ScamCheck helps you make more informed decisions when visiting unfamiliar websites.
                 It summarizes publicly observable signals and presents a structured report to support your own judgment.
               </p>
             </section>
@@ -66,7 +66,7 @@ export default function DisclaimerPage() {
             <section>
               <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">Models Used</h2>
               <p>
-                TrustCheck may use <strong>Gemini 2.5 Flash</strong> as part of producing summaries and structured assessments.
+                ScamCheck may use <strong>Gemini 2.5 Flash</strong> as part of producing summaries and structured assessments.
               </p>
             </section>
           </div>
@@ -79,7 +79,7 @@ export default function DisclaimerPage() {
               <svg className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Return to TrustCheck
+              Return to ScamCheck
             </Link>
           </div>
         </motion.div>
@@ -89,12 +89,12 @@ export default function DisclaimerPage() {
         <div className="flex flex-col gap-1 text-xs text-[rgba(17,24,39,0.45)]">
           <span>Designed to help you think clearly, not to accuse.</span>
           <a
-            href="https://trustcheck.agfe.tech"
+            href="https://scamcheck.tech"
             target="_blank"
             rel="noreferrer"
             className="w-fit text-[rgba(47,111,237,0.85)] hover:text-[rgba(47,111,237,1)]"
           >
-            trustcheck.agfe.tech
+            scamcheck.tech
           </a>
         </div>
       </footer>

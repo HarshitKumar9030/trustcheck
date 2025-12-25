@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
 import { ChevronLeft, Loader2, Check, ArrowRight, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Navbar } from "@/app/components/Navbar";
 
 export default function ReportScamPage() {
     const [submitted, setSubmitted] = useState(false);
@@ -101,138 +102,134 @@ export default function ReportScamPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F4F5F8] flex flex-col items-center py-12 sm:py-24 px-4 sm:px-6">
-            <motion.div
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                className="w-full max-w-[480px]"
-            >
-                <Link
-                    href="/"
-                    className="group inline-flex items-center text-sm font-medium text-gray-500 hover:text-gray-900 transition-colors mb-8 pl-1"
+        <div className="min-h-screen bg-[var(--bg)]">
+            <Navbar subtitle="Report a scam" />
+            <div className="flex flex-col items-center py-12 sm:py-16 px-4 sm:px-6">
+                <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                    className="w-full max-w-[480px]"
                 >
-                    <ChevronLeft className="w-4 h-4 mr-1 transition-transform group-hover:-translate-x-0.5" />
-                    Back
-                </Link>
 
-                <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04),0_8px_32px_rgba(0,0,0,0.04)] overflow-hidden ring-1 ring-gray-950/5">
-                    <div className="px-8 pt-8 pb-6 border-b border-gray-100">
-                        <h1 className="text-xl font-semibold text-gray-900">
-                            Report Suspicious Activity
-                        </h1>
-                        <p className="text-sm text-gray-500 mt-2">
-                            Help us improve our detection by reporting scams.
-                        </p>
-                    </div>
+                    <div className="bg-white rounded-2xl shadow-[0_2px_8px_rgba(0,0,0,0.04),0_8px_32px_rgba(0,0,0,0.04)] overflow-hidden ring-1 ring-gray-950/5">
+                        <div className="px-8 pt-8 pb-6 border-b border-gray-100">
+                            <h1 className="text-xl font-semibold text-gray-900">
+                                Report Suspicious Activity
+                            </h1>
+                            <p className="text-sm text-gray-500 mt-2">
+                                Help us improve our detection by reporting scams.
+                            </p>
+                        </div>
 
-                    <form onSubmit={handleSubmit} className="p-8 space-y-6">
-                        <div className="space-y-5">
-                            <div className="group relative">
-                                <label
-                                    htmlFor="url"
-                                    className={cn(
-                                        "absolute left-3 transition-all duration-200 pointer-events-none text-gray-500 px-1 bg-white",
-                                        formData.url || focusedField === "url"
-                                            ? "-top-2.5 text-xs font-medium text-[#5E6AD2]"
-                                            : "top-2.5 text-sm"
-                                    )}
-                                >
-                                    Website URL
-                                </label>
-                                <input
-                                    id="url"
-                                    type="url"
-                                    required
-                                    value={formData.url}
-                                    onFocus={() => setFocusedField("url")}
-                                    onBlur={() => setFocusedField(null)}
-                                    onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-all placeholder:text-transparent focus:border-[#5E6AD2] focus:ring-4 focus:ring-[#5E6AD2]/10"
-                                />
-                            </div>
-
-                            <div className="relative">
-                                <label className="block text-xs font-medium text-gray-500 mb-1.5 ml-1">
-                                    CATEGORY
-                                </label>
-                                <div className="relative">
-                                    <select
-                                        id="category"
-                                        value={formData.category}
-                                        onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                                        className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-all focus:border-[#5E6AD2] focus:ring-4 focus:ring-[#5E6AD2]/10"
+                        <form onSubmit={handleSubmit} className="p-8 space-y-6">
+                            <div className="space-y-5">
+                                <div className="group relative">
+                                    <label
+                                        htmlFor="url"
+                                        className={cn(
+                                            "absolute left-3 transition-all duration-200 pointer-events-none text-gray-500 px-1 bg-white",
+                                            formData.url || focusedField === "url"
+                                                ? "-top-2.5 text-xs font-medium text-[#5E6AD2]"
+                                                : "top-2.5 text-sm"
+                                        )}
                                     >
-                                        {categories.map((c) => (
-                                            <option key={c} value={c}>{c}</option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
-                                        <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                                        </svg>
+                                        Website URL
+                                    </label>
+                                    <input
+                                        id="url"
+                                        type="url"
+                                        required
+                                        value={formData.url}
+                                        onFocus={() => setFocusedField("url")}
+                                        onBlur={() => setFocusedField(null)}
+                                        onChange={(e) => setFormData({ ...formData, url: e.target.value })}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-all placeholder:text-transparent focus:border-[#5E6AD2] focus:ring-4 focus:ring-[#5E6AD2]/10"
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <label className="block text-xs font-medium text-gray-500 mb-1.5 ml-1">
+                                        CATEGORY
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            id="category"
+                                            value={formData.category}
+                                            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                                            className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-all focus:border-[#5E6AD2] focus:ring-4 focus:ring-[#5E6AD2]/10"
+                                        >
+                                            {categories.map((c) => (
+                                                <option key={c} value={c}>{c}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                            <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                            </svg>
+                                        </div>
                                     </div>
+                                </div>
+
+                                <div className="group relative">
+                                    <label
+                                        htmlFor="description"
+                                        className={cn(
+                                            "absolute left-3 transition-all duration-200 pointer-events-none text-gray-500 px-1 bg-white",
+                                            formData.description || focusedField === "description"
+                                                ? "-top-2.5 text-xs font-medium text-[#5E6AD2]"
+                                                : "top-2.5 text-sm"
+                                        )}
+                                    >
+                                        Description
+                                    </label>
+                                    <textarea
+                                        id="description"
+                                        rows={3}
+                                        value={formData.description}
+                                        onFocus={() => setFocusedField("description")}
+                                        onBlur={() => setFocusedField(null)}
+                                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                        className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-all placeholder:text-transparent resize-none focus:border-[#5E6AD2] focus:ring-4 focus:ring-[#5E6AD2]/10"
+                                    />
                                 </div>
                             </div>
 
-                            <div className="group relative">
-                                <label
-                                    htmlFor="description"
-                                    className={cn(
-                                        "absolute left-3 transition-all duration-200 pointer-events-none text-gray-500 px-1 bg-white",
-                                        formData.description || focusedField === "description"
-                                            ? "-top-2.5 text-xs font-medium text-[#5E6AD2]"
-                                            : "top-2.5 text-sm"
-                                    )}
+                            {error && (
+                                <motion.div
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: "auto" }}
+                                    className="rounded-lg bg-red-50 p-3 flex items-start gap-3"
                                 >
-                                    Description
-                                </label>
-                                <textarea
-                                    id="description"
-                                    rows={3}
-                                    value={formData.description}
-                                    onFocus={() => setFocusedField("description")}
-                                    onBlur={() => setFocusedField(null)}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-sm text-gray-900 outline-none transition-all placeholder:text-transparent resize-none focus:border-[#5E6AD2] focus:ring-4 focus:ring-[#5E6AD2]/10"
-                                />
-                            </div>
-                        </div>
+                                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
+                                    <p className="text-sm text-red-600 font-medium">{error}</p>
+                                </motion.div>
+                            )}
 
-                        {error && (
-                            <motion.div
-                                initial={{ opacity: 0, height: 0 }}
-                                animate={{ opacity: 1, height: "auto" }}
-                                className="rounded-lg bg-red-50 p-3 flex items-start gap-3"
+                            <button
+                                type="submit"
+                                disabled={loading}
+                                className="relative w-full overflow-hidden rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-900/10 disabled:opacity-70 disabled:pointer-events-none"
                             >
-                                <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-                                <p className="text-sm text-red-600 font-medium">{error}</p>
-                            </motion.div>
-                        )}
+                                <div className="relative z-10 flex items-center justify-center gap-2">
+                                    {loading ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                        <>
+                                            Submit Report
+                                            <ArrowRight className="w-4 h-4 opacity-50" />
+                                        </>
+                                    )}
+                                </div>
+                            </button>
 
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className="relative w-full overflow-hidden rounded-lg bg-gray-900 py-2.5 text-sm font-medium text-white shadow-sm transition-all hover:bg-gray-800 focus:outline-none focus:ring-4 focus:ring-gray-900/10 disabled:opacity-70 disabled:pointer-events-none"
-                        >
-                            <div className="relative z-10 flex items-center justify-center gap-2">
-                                {loading ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                    <>
-                                        Submit Report
-                                        <ArrowRight className="w-4 h-4 opacity-50" />
-                                    </>
-                                )}
-                            </div>
-                        </button>
-
-                        <p className="text-center text-xs text-gray-400 mt-4">
-                            Protected by TrustCheck Security
-                        </p>
-                    </form>
-                </div>
-            </motion.div>
+                            <p className="text-center text-xs text-gray-400 mt-4">
+                                Protected by TrustCheck Security
+                            </p>
+                        </form>
+                    </div>
+                </motion.div>
+            </div>
         </div>
     );
 }

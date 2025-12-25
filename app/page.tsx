@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CopyIcon, PrinterIcon, RefreshCcwIcon, ArrowRight } from "lucide-react";
 import { AnimatedActionButton } from "./components/AnimatedActionButton";
+import { Navbar } from "./components/Navbar";
 import { loadScanHistory, saveScanHistory, type ScanRecord } from "./lib/scanHistory";
 
 type Verdict = "good" | "warn" | "bad" | "unknown";
@@ -246,7 +247,7 @@ function TogglePill({
   icon?: ReactNode;
 }) {
   return (
-    <label className="group inline-flex cursor-pointer select-none items-start gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-2 transition hover:border-[rgba(47,111,237,0.32)] hover:shadow-sm focus-within:ring-4 focus-within:ring-[var(--ring)]">
+    <label className="group inline-flex cursor-pointer select-none items-start gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-2 transition hover:border-[rgba(47,111,237,0.32)] focus-within:ring-4 focus-within:ring-[var(--ring)]">
       <input
         type="checkbox"
         checked={checked}
@@ -941,54 +942,7 @@ export default function Home() {
       <Suspense fallback={null}>
         <SearchParamsAutoRun onSharedUrl={handleSharedUrl} />
       </Suspense>
-      <motion.header
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ type: "spring", stiffness: 240, damping: 26, mass: 0.8 }}
-        className="mx-auto max-w-5xl px-5 py-6 print:hidden"
-      >
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <Image
-              src="/trustcheck.png"
-              alt="TrustCheck"
-              width={36}
-              height={36}
-              className="rounded-xl ring-1 ring-[var(--border)] shadow-[0_8px_30px_rgba(17,24,39,0.06)]"
-            />
-            <div>
-              <div className="text-sm font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
-                TrustCheck
-              </div>
-              <div className="text-xs text-[var(--muted)]">Website trust analysis</div>
-            </div>
-          </Link>
-
-          <div className="flex items-center gap-1">
-            <Link
-              href="/flagged"
-              className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-            >
-              Flagged
-              <span className="rounded-full border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.06)] px-2 py-0.5 text-[11px] font-semibold text-[rgba(194,65,68,1)]">
-                {flaggedCount}
-              </span>
-            </Link>
-            <Link
-              href="/donate"
-              className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-            >
-              Donate
-            </Link>
-            <Link
-              href="/disclaimer"
-              className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-            >
-              Disclaimer
-            </Link>
-          </div>
-        </div>
-      </motion.header>
+      <Navbar subtitle="Website trust analysis" flaggedCount={flaggedCount} />
 
       <main className="mx-auto max-w-5xl px-5 pb-16">
         <section className="pt-10 sm:pt-14 print:hidden">
@@ -1026,7 +980,7 @@ export default function Home() {
                     placeholder="Enter website URL"
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    className="h-12 w-full rounded-2xl border border-[var(--border)] bg-white px-4 text-[15px] text-[var(--text)] shadow-sm outline-none placeholder:text-[rgba(17,24,39,0.45)] focus:border-[rgba(47,111,237,0.35)] focus:ring-4 focus:ring-[var(--ring)]"
+                    className="h-12 w-full rounded-2xl border border-[var(--border)] bg-white px-4 text-[15px] text-[var(--text)] outline-none placeholder:text-[rgba(17,24,39,0.45)] focus:border-[rgba(47,111,237,0.35)] focus:ring-4 focus:ring-[var(--ring)]"
                   />
                   <AnimatedActionButton
                     disabled={loading}

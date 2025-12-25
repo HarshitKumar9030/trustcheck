@@ -28,6 +28,8 @@ export type FlaggedSiteRecord = {
     warnings?: string[];
   };
   timesObserved: number;
+  // Full cached report for detailed display
+  fullReport?: AnalysisResponse;
 };
 
 declare global {
@@ -49,12 +51,21 @@ function clamp(n: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, n));
 }
 
-export function isFlaggedAnalysis(r: Pick<AnalysisResponse, "score" | "status" | "agentSignals">): boolean {
+export function isFlaggedAnalysis(r: Pick<AnalysisResponse, "score" | "status" | "agentSignals" | "aiAnalysis">): boolean {
   const scoreFlag = r.score < 45;
   const statusFlag = r.status === "High Risk Indicators Detected";
-  const verdict = r.agentSignals?.aiJudgment?.verdict;
-  const aiFlag = verdict === "suspicious" || verdict === "likely_deceptive";
-  return Boolean(scoreFlag || statusFlag || aiFlag);
+  
+  // Check AI verdict from agentSignals (Python agent path)
+  const agentVerdict = r.agentSignals?.aiJudgment?.verdict;
+  const agentAiFlag = agentVerdict === "suspicious" || agentVerdict === "likely_deceptive";
+  
+  // Check aiAnalysis (Node.js fallback path) - flag if high confidence AND has risk factors
+  const hasRiskFactors = (r.aiAnalysis?.riskFactors?.length ?? 0) > 0;
+  const hasNegativeSignals = (r.aiAnalysis?.trustSignals?.negative?.length ?? 0) > 2;
+  const lowAiScore = (r.aiAnalysis?.aiScore ?? 100) < 50;
+  const nodeAiFlag = hasRiskFactors && (hasNegativeSignals || lowAiScore);
+  
+  return Boolean(scoreFlag || statusFlag || agentAiFlag || nodeAiFlag);
 }
 
 function safeHostname(url: string): string | null {
@@ -133,23 +144,32 @@ function buildFlaggedDoc(analysis: AnalysisResponse, observedAtMs: number): Flag
       warnings: analysis.agentSignals?.warnings ?? [],
     },
     timesObserved: 1,
+    fullReport: analysis,
   };
 }
 
 async function ensureIndexes(): Promise<void> {
-  const db = await getMongoDb();
-  if (!db) return;
-  const col = db.collection<FlaggedSiteRecord>("flagged_sites");
-  try {
-    await col.createIndex({ hostname: 1 }, { unique: true });
-    await col.createIndex({ lastObservedAtMs: -1 });
-    await col.createIndex({ score: 1 });
-    await col.createIndex({ status: 1 });
-    await col.createIndex({ hostname: "text", normalizedUrl: "text", summary: "text", issues: "text" });
-  } catch {
-    // ignore
-  }
+  // do it at most once per server instance.
+  // If Mongo isn't configured, thi is a no-op.
+  if (_ensureIndexesOnce) return _ensureIndexesOnce;
+  _ensureIndexesOnce = (async () => {
+    const db = await getMongoDb();
+    if (!db) return;
+    const col = db.collection<FlaggedSiteRecord>("flagged_sites");
+    try {
+      await col.createIndex({ hostname: 1 }, { unique: true });
+      await col.createIndex({ lastObservedAtMs: -1 });
+      await col.createIndex({ score: 1 });
+      await col.createIndex({ status: 1 });
+      await col.createIndex({ hostname: "text", normalizedUrl: "text", summary: "text", issues: "text" });
+    } catch {
+      // ignore
+    }
+  })();
+  return _ensureIndexesOnce;
 }
+
+let _ensureIndexesOnce: Promise<void> | null = null;
 
 export async function upsertFlaggedFromAnalysis(
   analysis: AnalysisResponse,
@@ -189,7 +209,6 @@ export async function upsertFlaggedFromAnalysis(
         $setOnInsert: {
           hostname: doc.hostname,
           firstObservedAtMs: doc.firstObservedAtMs,
-          timesObserved: 0,
         },
         $set: {
           normalizedUrl: doc.normalizedUrl,
@@ -203,6 +222,7 @@ export async function upsertFlaggedFromAnalysis(
           issues: doc.issues,
           findings: doc.findings,
           evidence: doc.evidence,
+          fullReport: doc.fullReport,
         },
         $inc: { timesObserved: 1 },
       },

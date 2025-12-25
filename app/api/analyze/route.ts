@@ -19,7 +19,7 @@ type AnalyzeRequest = {
   checkExternalReviews?: boolean;
 };
 
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24; // 24h
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 4; // 4 days - saves AI costs
 const CACHE_VERSION = "v4";
 const ENABLE_CACHE = process.env.ENABLE_CACHE === "true";
 

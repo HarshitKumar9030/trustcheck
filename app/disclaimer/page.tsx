@@ -1,175 +1,88 @@
-import Image from "next/image";
-import Link from "next/link";
+"use client";
 
-export const metadata = {
-  title: "Disclaimer - TrustCheck",
-  description: "Important information about how TrustCheck works and its limitations.",
-};
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { NavbarWrapper } from "@/app/components/NavbarWrapper";
 
 export default function DisclaimerPage() {
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <header className="mx-auto max-w-3xl px-5 py-6">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/"
-            className="flex items-center gap-3 group"
-          >
-            <Image
-              src="/trustcheck.png"
-              alt="TrustCheck"
-              width={36}
-              height={36}
-              className="rounded-xl ring-1 ring-[var(--border)] shadow-[0_8px_30px_rgba(17,24,39,0.06)]"
-            />
-            <div>
-              <div className="text-sm font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
-                TrustCheck
-              </div>
-              <div className="text-xs text-[var(--muted)]">Website trust analysis</div>
-            </div>
-          </Link>
-          
-          <Link
-            href="/"
-            className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] transition-colors"
-          >
-            <svg
-              className="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              strokeWidth={2}
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-            </svg>
-            Back
-          </Link>
-        </div>
-      </header>
+      <NavbarWrapper subtitle="Disclaimer" />
 
-      <main className="mx-auto max-w-3xl px-5 pb-16">
-        <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-6 py-10 sm:px-10 sm:py-12">
-          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl">
+      <main className="mx-auto max-w-3xl px-5 pb-16 pt-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-8 py-10 sm:px-12 sm:py-14"
+        >
+          <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl mb-10">
             Disclaimer
           </h1>
 
-          <div className="mt-8 space-y-6 text-[15px] leading-7 text-[var(--muted)]">
+          <div className="space-y-10 text-[15px] leading-7 text-[var(--muted)]">
             <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">Purpose of This Tool</h2>
-              <p className="mt-2">
+              <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">Purpose</h2>
+              <p>
                 TrustCheck helps you make more informed decisions when visiting unfamiliar websites.
                 It summarizes publicly observable signals and presents a structured report to support your own judgment.
               </p>
             </section>
 
             <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">How It Works</h2>
-              <ul className="mt-2 list-disc pl-5 space-y-2">
-                <li>
-                  <strong>Connection & TLS:</strong> We check whether HTTPS is used and capture basic certificate signals.
-                </li>
-                <li>
-                  <strong>Domain Age:</strong> We query public RDAP/WHOIS sources (when available) to estimate registration age.
-                </li>
-                <li>
-                  <strong>Fetch & Redirects:</strong> We record HTTP status, content type, and redirect behavior.
-                </li>
-                <li>
-                  <strong>On-page Signals:</strong> We look for common trust signals like contact/support information, business identity cues, and policy pages.
-                </li>
-                <li>
-                  <strong>Security Headers:</strong> We check for modern security-related HTTP headers when provided.
-                </li>
-                <li>
-                  <strong>Multi-page Sampling:</strong> When possible, we sample multiple internal pages to reduce homepage-only bias.
-                </li>
+              <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">How It Works</h2>
+              <ul className="list-disc pl-5 space-y-2 marker:text-gray-400">
+                <li><strong className="text-[var(--text)] font-medium">Connection & TLS:</strong> Checks for HTTPS and certificate validity.</li>
+                <li><strong className="text-[var(--text)] font-medium">Domain Age:</strong> Queries RDAP/WHOIS to estimate registration age.</li>
+                <li><strong className="text-[var(--text)] font-medium">Fetch & Redirects:</strong> Records status codes and redirect chains.</li>
+                <li><strong className="text-[var(--text)] font-medium">On-page Signals:</strong> Looks for contact info, privacy policies, and business cues.</li>
+                <li><strong className="text-[var(--text)] font-medium">Security Headers:</strong> Checks for modern security headers.</li>
               </ul>
             </section>
 
             <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">No Legal or Factual Claims</h2>
-              <p className="mt-2">
-                This tool does not make any legal, factual, or definitive claims about any website.
-                The trust score and notes are automated and may be incomplete, outdated, or inaccurate.
-                We intentionally use neutral language and avoid accusatory terms.
+              <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">No Claims & Limitations</h2>
+              <div className="space-y-4">
+                <p>
+                  This tool does not make any legal, factual, or definitive claims about any website.
+                  The trust score and notes are automated and may be incomplete, outdated, or inaccurate.
+                </p>
+                <p>
+                  A high score does not guarantee safety, and a low score does not imply danger.
+                  Automated checks cannot detect all risks (malware, phishing, specific frauds).
+                  <strong> Always use your own judgment.</strong>
+                </p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">Privacy</h2>
+              <p>
+                We analyze only publicly accessible website content and metadata. We do not ask for
+                personal data. Submitted URLs may be cached temporarily for performance.
               </p>
             </section>
 
             <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">Limitations</h2>
-              <ul className="mt-2 list-disc pl-5 space-y-2">
-                <li>
-                  Domain age information relies on public RDAP/WHOIS data, which is not always available or accurate.
-                </li>
-                <li>
-                  Homepage content analysis may be blocked by certain websites, bot protection, or security measures.
-                </li>
-                <li>
-                  A high score does not guarantee a website is safe; a low score does not mean a
-                  website is dangerous.
-                </li>
-                <li>
-                  Well-known brands may receive favorable treatment even when content cannot be fetched.
-                </li>
-                <li>
-                  Automated pattern checks may not catch all risks and can misinterpret signals.
-                </li>
-                <li>
-                  This tool cannot detect all forms of risk, including but not limited to: malware,
-                  phishing, data breaches, or financial fraud.
-                </li>
-              </ul>
-            </section>
-
-            <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">Privacy</h2>
-              <p className="mt-2">
-                We analyze only publicly accessible website content and metadata. We do not ask for your personal data.
-                Submitted URLs may be cached temporarily to improve performance.
+              <h2 className="text-sm font-semibold text-[var(--text)] uppercase tracking-wider mb-3">Models Used</h2>
+              <p>
+                TrustCheck may use <strong>Gemini 2.5 Flash</strong> as part of producing summaries and structured assessments.
               </p>
-            </section>
-
-            <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">Use Your Own Judgment</h2>
-              <p className="mt-2">
-                Always exercise your own judgment and conduct additional research before sharing
-                personal information, making purchases, or trusting any website. This tool is meant
-                to assist your decision-making process, not replace it. When in doubt, consult
-                official sources or trusted security professionals.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">No Liability</h2>
-              <p className="mt-2">
-                The creators of TrustCheck accept no liability for any decisions made based on the
-                information provided by this tool. Use at your own risk.
-              </p>
-            </section>
-
-            <section>
-              <h2 className="text-base font-semibold text-[var(--text)]">Models Used</h2>
-              <p className="mt-2">
-                TrustCheck may use the following model as part of producing summaries and structured assessments:
-              </p>
-              <ul className="mt-2 list-disc pl-5 space-y-2">
-                <li>
-                  <strong>Gemini 3 Flash</strong>
-                </li>
-              </ul>
             </section>
           </div>
 
-          <div className="mt-10 pt-6 border-t border-[var(--border)]">
+          <div className="mt-12 pt-8 border-t border-[var(--border)]">
             <Link
               href="/"
-              className="inline-flex h-11 items-center justify-center rounded-2xl bg-[var(--brand)] px-5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[var(--brand-ink)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
+              className="group inline-flex items-center text-sm font-medium text-[var(--text)] hover:text-[var(--brand)] transition-colors"
             >
+              <svg className="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
               Return to TrustCheck
             </Link>
           </div>
-        </div>
+        </motion.div>
       </main>
 
       <footer className="mx-auto max-w-3xl px-5 pb-10">

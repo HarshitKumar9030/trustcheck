@@ -1,13 +1,10 @@
-import type { Metadata } from "next";
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { DonateClient } from "@/app/donate/DonateClient";
-import { FadeIn } from "@/app/components/FadeIn";
-
-export const metadata: Metadata = {
-  title: "Donate • TrustCheck",
-  description: "Support TrustCheck development via card, crypto, or UPI.",
-};
+import { NavbarWrapper } from "@/app/components/NavbarWrapper";
 
 export default function DonatePage() {
   const config = {
@@ -25,72 +22,29 @@ export default function DonatePage() {
 
   return (
     <div className="min-h-screen bg-[var(--bg)]">
-      <header className="mx-auto max-w-5xl px-5 py-6">
-        <div className="flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-3 group">
-            <Image
-              src="/trustcheck.png"
-              alt="TrustCheck"
-              width={36}
-              height={36}
-              className="rounded-xl ring-1 ring-[var(--border)] shadow-[0_8px_30px_rgba(17,24,39,0.06)]"
-            />
-            <div>
-              <div className="text-sm font-semibold tracking-tight text-[var(--text)] group-hover:text-[var(--brand)] transition-colors">
-                TrustCheck
-              </div>
-              <div className="text-xs text-[var(--muted)]">AI-Powered Trust Analysis</div>
-            </div>
-          </Link>
+      <NavbarWrapper subtitle="Support TrustCheck" />
 
-          <div className="flex items-center gap-1">
-            <a
-              href="/flagged"
-              className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-            >
-              Flagged
-            </a>
-            <a
-              href="/donate"
-              aria-current="page"
-              className="rounded-full bg-[rgba(47,111,237,0.10)] px-3 py-2 text-sm font-medium text-[var(--brand)] ring-1 ring-[rgba(47,111,237,0.18)]"
-            >
-              Donate
-            </a>
-            <a
-              href="/disclaimer"
-              className="rounded-full px-3 py-2 text-sm text-[var(--muted)] hover:text-[var(--text)] focus:outline-none focus:ring-4 focus:ring-[var(--ring)]"
-            >
-              Disclaimer
-            </a>
+      <main className="mx-auto max-w-3xl px-5 pb-16 pt-8">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)] px-8 py-10 sm:px-12 sm:py-14"
+        >
+          <div className="text-center mb-10">
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--text)] sm:text-3xl mb-3">
+              Support TrustCheck
+            </h1>
+            <p className="text-[var(--muted)] leading-relaxed max-w-lg mx-auto">
+              TrustCheck is self-funded. Your support helps cover hosting, crawling, and AI inference costs.
+            </p>
           </div>
-        </div>
-      </header>
 
-      <main className="mx-auto max-w-5xl px-5 pb-16">
-        <section className="pt-10 sm:pt-14">
-          <FadeIn>
-            <div className="rounded-3xl bg-[var(--surface)] ring-1 ring-[var(--border)] shadow-[var(--shadow)]">
-              <div className="px-6 py-10 sm:px-10 sm:py-12">
-                <div className="mx-auto max-w-2xl text-center">
-                  <h1 className="text-balance text-3xl font-semibold tracking-tight text-[var(--text)] sm:text-4xl">
-                    Support TrustCheck
-                  </h1>
-                  <p className="mt-3 text-pretty text-base leading-7 text-[var(--muted)] sm:text-lg">
-                    TrustCheck is self-funded. Donations help cover hosting, crawling, and AI inference costs.
-                  </p>
-                </div>
-
-                <div className="mx-auto mt-8 max-w-3xl">
-                  <DonateClient config={config} />
-                </div>
-              </div>
-            </div>
-          </FadeIn>
-        </section>
+          <DonateClient config={config} />
+        </motion.div>
       </main>
 
-      <footer className="mx-auto max-w-5xl px-5 pb-10">
+      <footer className="mx-auto max-w-3xl px-5 pb-10">
         <div className="flex flex-col gap-1 text-xs text-[rgba(17,24,39,0.45)]">
           <span>Thank you for keeping TrustCheck running.</span>
           <a

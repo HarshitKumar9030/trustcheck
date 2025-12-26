@@ -17,6 +17,7 @@ type AnalyzeRequest = {
   force?: boolean;
   timeoutMs?: number;
   checkExternalReviews?: boolean;
+  advancedCrawl?: boolean;
 };
 
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 4; // 4 days - saves AI costs
@@ -114,6 +115,8 @@ type PythonAgentResponse = {
   crawl?: {
     pages_requested: number;
     pages_fetched: number;
+    crawl_mode?: string;
+    max_depth_reached?: number;
     pages: Array<{
       url: string;
       final_url?: string | null;
@@ -207,7 +210,7 @@ function mapPythonAgentSignals(data: PythonAgentResponse): AgentSignals {
 
 async function tryAnalyzeViaPythonAgent(
   normalizedUrl: string,
-  opts: { timeoutMs?: number; checkExternalReviews?: boolean } = {}
+  opts: { timeoutMs?: number; checkExternalReviews?: boolean; advancedCrawl?: boolean } = {}
 ): Promise<AnalysisResponse | null> {
   const base = (process.env.PYTHON_AGENT_URL ?? "").trim().replace(/\/$/, "");
   if (!base) return null;
@@ -229,6 +232,7 @@ async function tryAnalyzeViaPythonAgent(
         url: normalizedUrl,
         timeout_ms: timeoutMs,
         check_external_reviews: checkExternalReviews,
+        advanced_crawl: opts.advancedCrawl ?? false,
       }),
       timeoutMs: timeoutMs + 7000,
       cache: "no-store",
@@ -397,9 +401,13 @@ export async function POST(req: Request) {
     }
   }
 
+  const advancedCrawl =
+    typeof body.advancedCrawl === "boolean" ? body.advancedCrawl : false;
+
   const agentResponse = await tryAnalyzeViaPythonAgent(normalizedUrl, {
     timeoutMs,
     checkExternalReviews,
+    advancedCrawl,
   });
   if (agentResponse) {
     const cacheHostname = (() => {

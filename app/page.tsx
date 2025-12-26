@@ -440,6 +440,7 @@ export default function Home() {
   const [lastRunMs, setLastRunMs] = useState<number | null>(null);
   const [deepAnalysis, setDeepAnalysis] = useState(true);
   const [checkExternalReviews, setCheckExternalReviews] = useState(true);
+  const [advancedCrawl, setAdvancedCrawl] = useState(false);
   const autoRanRef = useRef(false);
 
   const [analysisLog, setAnalysisLog] = useState<AnalysisLogEntry[]>([]);
@@ -657,6 +658,7 @@ export default function Home() {
           force: Boolean(opts?.force),
           timeoutMs: requestedTimeoutMs,
           checkExternalReviews,
+          advancedCrawl,
         }),
       });
 
@@ -986,6 +988,17 @@ export default function Home() {
                     icon={
                       <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.955a1 1 0 00.95.69h4.157c.969 0 1.371 1.24.588 1.81l-3.363 2.444a1 1 0 00-.364 1.118l1.286 3.955c.3.921-.755 1.688-1.538 1.118l-3.363-2.444a1 1 0 00-1.176 0l-3.363 2.444c-.783.57-1.838-.197-1.538-1.118l1.286-3.955a1 1 0 00-.364-1.118L2.068 9.382c-.783-.57-.38-1.81.588-1.81h4.157a1 1 0 00.95-.69l1.286-3.955z" />
+                      </svg>
+                    }
+                  />
+                  <TogglePill
+                    checked={advancedCrawl}
+                    onChange={setAdvancedCrawl}
+                    label="Advanced crawl"
+                    description="Spider-web mode, more pages"
+                    icon={
+                      <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM4.332 8.027a6.012 6.012 0 011.912-2.706C6.512 5.73 6.974 6 7.5 6A1.5 1.5 0 019 7.5V8a2 2 0 004 0 2 2 0 011.523-1.943A5.977 5.977 0 0116 10c0 .34-.028.675-.083 1H15a2 2 0 00-2 2v2.197A5.973 5.973 0 0110 16v-2a2 2 0 00-2-2 2 2 0 01-2-2 2 2 0 00-1.668-1.973z" clipRule="evenodd" />
                       </svg>
                     }
                   />

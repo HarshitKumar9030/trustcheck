@@ -94,28 +94,113 @@ function normalizeUrl(rawUrl: string): string {
   return url.toString();
 }
 
+/** Compound ccTLDs where the registrable domain is 3 labels, not 2. */
+const TWO_PART_TLDS = new Set([
+  "co.uk","org.uk","me.uk","ac.uk","gov.uk","net.uk","sch.uk",
+  "com.au","net.au","org.au","edu.au","gov.au","id.au",
+  "co.nz","net.nz","org.nz","govt.nz","ac.nz","school.nz",
+  "com.br","net.br","org.br","gov.br","edu.br",
+  "co.in","net.in","org.in","gen.in","firm.in","ind.in","ac.in",
+  "co.za","org.za","web.za","net.za","gov.za","ac.za",
+  "co.jp","ne.jp","or.jp","ac.jp","go.jp","lg.jp",
+  "co.kr","ne.kr","or.kr","go.kr","pe.kr","re.kr",
+  "com.cn","net.cn","org.cn","gov.cn","edu.cn","ac.cn",
+  "com.mx","net.mx","org.mx","gob.mx","edu.mx",
+  "com.ar","net.ar","org.ar","gob.ar","edu.ar",
+  "com.sg","net.sg","org.sg","gov.sg","edu.sg",
+  "com.hk","net.hk","org.hk","gov.hk","edu.hk","idv.hk",
+  "com.tw","net.tw","org.tw","gov.tw","edu.tw","idv.tw",
+  "co.il","org.il","net.il","ac.il","gov.il",
+  "com.tr","net.tr","org.tr","gov.tr","edu.tr",
+  "com.ng","net.ng","org.ng","gov.ng","edu.ng",
+  "co.ke","or.ke","ne.ke","go.ke","ac.ke",
+  "com.my","net.my","org.my","gov.my","edu.my",
+  "com.ph","net.ph","org.ph","gov.ph","edu.ph",
+  "co.th","in.th","or.th","ac.th","go.th",
+  "com.pk","net.pk","org.pk","gov.pk","edu.pk",
+]);
+
 function registrableDomainGuess(hostname: string): string {
   const parts = hostname.split(".").filter(Boolean);
   if (parts.length <= 2) return hostname;
+  // Check for compound ccTLD (e.g. co.uk → need 3 labels)
+  if (parts.length >= 3) {
+    const lastTwo = parts.slice(-2).join(".");
+    if (TWO_PART_TLDS.has(lastTwo)) {
+      return parts.slice(-3).join(".");
+    }
+  }
   return parts.slice(-2).join(".");
 }
 
 // Well-known established domains get a trust bonus (these sites block bots but are reputable)
 const WELL_KNOWN_DOMAINS = new Set([
-  "google.com", "youtube.com", "facebook.com", "amazon.com", "apple.com",
-  "microsoft.com", "netflix.com", "linkedin.com", "twitter.com", "x.com",
-  "instagram.com", "reddit.com", "wikipedia.org", "github.com", "stackoverflow.com",
-  "ebay.com", "walmart.com", "target.com", "bestbuy.com", "costco.com",
-  "paypal.com", "stripe.com", "shopify.com", "etsy.com", "zoom.us",
-  "slack.com", "dropbox.com", "adobe.com", "salesforce.com", "oracle.com",
+  // Search & portals
+  "google.com", "bing.com", "yahoo.com", "duckduckgo.com", "baidu.com", "yandex.ru",
+  // Video & streaming
+  "youtube.com", "netflix.com", "hulu.com", "disneyplus.com", "hbomax.com",
+  "primevideo.com", "peacocktv.com", "crunchyroll.com", "twitch.tv", "vimeo.com",
+  // Social media
+  "facebook.com", "instagram.com", "twitter.com", "x.com", "linkedin.com",
+  "reddit.com", "tiktok.com", "snapchat.com", "pinterest.com", "tumblr.com",
+  "discord.com", "telegram.org", "whatsapp.com", "signal.org",
+  // Tech giants
+  "apple.com", "microsoft.com", "amazon.com", "meta.com",
   "ibm.com", "intel.com", "nvidia.com", "amd.com", "dell.com", "hp.com",
-  "spotify.com", "twitch.tv", "discord.com", "tiktok.com", "snapchat.com",
-  "pinterest.com", "tumblr.com", "quora.com", "medium.com", "substack.com",
-  "nytimes.com", "washingtonpost.com", "bbc.com", "cnn.com", "reuters.com",
-  "bloomberg.com", "wsj.com", "forbes.com", "theguardian.com", "npr.org",
-  "chase.com", "bankofamerica.com", "wellsfargo.com", "citi.com", "capitalone.com",
-  "amex.com", "visa.com", "mastercard.com", "fidelity.com", "schwab.com",
-  "vanguard.com", "robinhood.com", "coinbase.com", "binance.com", "kraken.com",
+  "lenovo.com", "samsung.com", "sony.com", "lg.com", "asus.com",
+  // Dev & cloud
+  "github.com", "gitlab.com", "bitbucket.org", "stackoverflow.com",
+  "npmjs.com", "pypi.org", "docker.com", "vercel.com", "netlify.com",
+  "heroku.com", "digitalocean.com", "aws.amazon.com", "cloud.google.com",
+  "azure.microsoft.com",
+  // SaaS & productivity
+  "zoom.us", "slack.com", "notion.so", "atlassian.com", "trello.com",
+  "asana.com", "monday.com", "figma.com", "canva.com",
+  "salesforce.com", "oracle.com", "sap.com", "workday.com", "servicenow.com",
+  "dropbox.com", "box.com", "adobe.com", "autodesk.com", "intuit.com",
+  // E-commerce & retail
+  "ebay.com", "walmart.com", "target.com", "bestbuy.com", "costco.com",
+  "etsy.com", "shopify.com", "aliexpress.com", "wish.com", "wayfair.com",
+  "homedepot.com", "lowes.com", "macys.com", "nordstrom.com", "ikea.com",
+  "zappos.com", "newegg.com", "overstock.com",
+  // Finance & payments
+  "paypal.com", "stripe.com", "square.com", "venmo.com",
+  "chase.com", "bankofamerica.com", "wellsfargo.com", "citi.com",
+  "capitalone.com", "amex.com", "visa.com", "mastercard.com",
+  "fidelity.com", "schwab.com", "vanguard.com", "tdameritrade.com",
+  "robinhood.com", "coinbase.com", "binance.com", "kraken.com",
+  "sofi.com", "ally.com", "discover.com",
+  // News & media
+  "nytimes.com", "washingtonpost.com", "bbc.com", "bbc.co.uk", "cnn.com",
+  "reuters.com", "apnews.com", "bloomberg.com", "wsj.com", "forbes.com",
+  "theguardian.com", "npr.org", "time.com", "economist.com",
+  "usatoday.com", "nbcnews.com", "abcnews.go.com", "cbsnews.com",
+  "foxnews.com", "politico.com", "thehill.com",
+  // Knowledge & education
+  "wikipedia.org", "wikimedia.org", "britannica.com",
+  "coursera.org", "edx.org", "udemy.com", "khanacademy.org",
+  "duolingo.com", "quizlet.com",
+  // Publishing & blogs
+  "medium.com", "substack.com", "quora.com", "wordpress.com", "blogger.com",
+  // Travel & food
+  "booking.com", "airbnb.com", "expedia.com", "tripadvisor.com",
+  "kayak.com", "hotels.com", "vrbo.com",
+  "doordash.com", "ubereats.com", "grubhub.com", "yelp.com",
+  // Health & govt
+  "webmd.com", "mayoclinic.org", "nih.gov", "cdc.gov", "who.int",
+  "healthcare.gov", "medicare.gov",
+  // Music & entertainment
+  "spotify.com", "soundcloud.com", "bandcamp.com",
+  "imdb.com", "rottentomatoes.com",
+  // Telecoms & ISPs
+  "att.com", "verizon.com", "t-mobile.com", "comcast.com", "xfinity.com",
+  // Ride & logistics
+  "uber.com", "lyft.com", "fedex.com", "ups.com", "usps.com", "dhl.com",
+  // Gaming
+  "steampowered.com", "epicgames.com", "ea.com", "roblox.com", "minecraft.net",
+  // Real estate & auto
+  "zillow.com", "realtor.com", "redfin.com", "trulia.com",
+  "carvana.com", "carmax.com", "autotrader.com",
 ]);
 
 function isWellKnownDomain(hostname: string): boolean {
@@ -145,7 +230,7 @@ async function fetchWithTimeout(
   input: string,
   init: RequestInit & { timeoutMs?: number } = {}
 ): Promise<Response> {
-  const { timeoutMs = 8000, ...rest } = init;
+  const { timeoutMs = 12000, ...rest } = init;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -171,11 +256,10 @@ async function getDomainAgeDays(hostname: string): Promise<number | null> {
     };
 
     const events = data.events ?? [];
-    const registration = events.find((e) =>
-      String(e.eventAction ?? "")
-        .toLowerCase()
-        .includes("registration")
-    );
+    const registration = events.find((e) => {
+      const action = String(e.eventAction ?? "").toLowerCase();
+      return action.includes("registration") || action === "created" || action === "registered";
+    });
     if (!registration?.eventDate) return null;
 
     const created = Date.parse(registration.eventDate);
@@ -207,7 +291,7 @@ async function fetchHomepageSignals(normalizedUrl: string): Promise<{
     while (maxRedirects > 0) {
       const res = await fetchWithTimeout(currentUrl, {
         redirect: "manual",
-        timeoutMs: 8000,
+        timeoutMs: 12000,
         headers: {
           "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 TrustCheckBot/2.0",
           accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
@@ -292,6 +376,19 @@ export async function analyzeWebsite(
 
   // 3) Homepage content signals (best-effort)
   const { finalUrl, htmlText, httpStatus, contentType, headers, redirectChain } = await fetchHomepageSignals(normalizedUrl);
+
+  // Cross-domain redirect detection
+  const finalHostname = (() => { try { return new URL(finalUrl).hostname; } catch { return hostname; } })();
+  const crossDomainRedirect = registrableDomainGuess(hostname) !== registrableDomainGuess(finalHostname);
+  if (crossDomainRedirect) {
+    explainability.push({
+      key: "crossDomainRedirect",
+      label: "Cross-domain redirect",
+      verdict: "warn",
+      detail: `Redirected from ${hostname} to ${finalHostname}. Cross-domain redirects can indicate domain forwarding or potential phishing setups.`,
+    });
+  }
+
   const finalProtocol = (() => {
     try {
       return new URL(finalUrl).protocol;
@@ -314,18 +411,17 @@ export async function analyzeWebsite(
 
   const text = htmlText ? htmlText.replace(/<script[\s\S]*?<\/script>/gi, " ").replace(/<style[\s\S]*?<\/style>/gi, " ") : "";
 
-  // Business info presence
+  // Business info presence (phrase-level to avoid false positives)
   const businessNeedles = [
-    "about",
-    "contact",
-    "company",
-    "who we are",
-    "privacy",
-    "terms",
-    "refund",
-    "returns",
-    "shipping",
-    "support",
+    "about us", "about our", "our company", "our team", "who we are",
+    "contact us", "get in touch", "reach out",
+    "privacy policy", "privacy notice", "data protection",
+    "terms of service", "terms and conditions", "terms of use",
+    "refund policy", "return policy", "returns & exchanges",
+    "shipping policy", "shipping info", "delivery info",
+    "customer support", "help center", "help centre", "faq",
+    "company info", "corporate info", "our mission", "our story",
+    "trust & safety", "cookie policy",
   ];
   const businessCount = text ? countAny(text, businessNeedles) : 0;
   let businessVerdict: Verdict = "unknown";
@@ -346,26 +442,26 @@ export async function analyzeWebsite(
     detail: businessDetail,
   });
 
-  // Medical claims detected (non-accusatory)
-  const medicalNeedles = [
-    "cure",
-    "treat",
-    "diagnose",
-    "remedy",
-    "miracle",
-    "fda",
-    "clinical",
-    "disease",
-    "weight loss",
-    "supplement",
+  // Medical/health scam detection (two tiers to avoid flagging legitimate health sites)
+  const scamMedicalPhrases = [
+    "miracle cure", "guaranteed cure", "secret remedy",
+    "doctors don't want", "big pharma hides", "one weird trick",
+    "clinically proven to cure", "fda approved cure",
+    "lose weight fast", "rapid weight loss", "burn fat instantly",
+    "100% natural cure", "ancient remedy", "detox miracle",
   ];
-  const medicalFound = htmlText ? hasAny(text, medicalNeedles) : false;
+  const genericMedicalTerms = [
+    "supplement", "weight loss", "anti-aging", "detox", "cleanse", "miracle", "remedy",
+  ];
+  const scamMedicalHit = htmlText ? hasAny(text, scamMedicalPhrases) : false;
+  const genericMedicalCount = htmlText ? countAny(text, genericMedicalTerms) : 0;
+  const medicalFound = scamMedicalHit || genericMedicalCount >= 3;
   let medicalVerdict: Verdict = "unknown";
   let medicalDetail = "Homepage content wasn’t available to check for claims.";
   if (htmlText) {
     medicalVerdict = medicalFound ? "warn" : "good";
     medicalDetail = medicalFound
-      ? "Detected health/medical-related phrasing; consider extra caution and verification."
+      ? "Detected health/medical-related phrasing that may indicate unverified claims; consider extra caution."
       : "No obvious health/medical-claim phrasing detected on the homepage.";
   }
   explainability.push({
@@ -375,8 +471,16 @@ export async function analyzeWebsite(
     detail: medicalDetail,
   });
 
-  // Customer support signals
-  const supportNeedles = ["support", "help", "contact", "returns", "refund", "shipping", "email", "phone"];
+  // Customer support signals (phrase-level to reduce false positives)
+  const supportNeedles = [
+    "customer support", "customer service", "help center", "help centre",
+    "contact us", "get in touch", "live chat", "chat with us",
+    "return policy", "returns policy", "refund policy",
+    "shipping policy", "delivery policy",
+    "email us", "call us", "phone support",
+    "support team", "support center", "support centre",
+    "toll free", "toll-free",
+  ];
   const supportFound = htmlText ? hasAny(text, supportNeedles) : false;
   let supportVerdict: Verdict = "unknown";
   let supportDetail = "Homepage content wasn’t available to check for support signals.";
@@ -472,6 +576,11 @@ export async function analyzeWebsite(
     bad: -6, 
     unknown: isWellKnown ? 8 : 0 
   });
+
+  // Penalty for cross-domain redirects
+  if (crossDomainRedirect) {
+    score -= 10;
+  }
 
   // Bonus for well-known established domains
   if (isWellKnown) {

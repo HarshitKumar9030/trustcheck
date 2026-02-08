@@ -32,7 +32,7 @@ function randomId(): string {
   return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}-${Math.random().toString(16).slice(2)}`;
 }
 
-export function putScreenshot(input: { mime: string; data: Uint8Array; ttlMs?: number }): { id: string } {
+export function putScreenshot(input: { mime: string; data: Uint8Array; ttlMs?: number }): { id: string; stored: boolean } {
   const ttlMs =
     typeof input.ttlMs === "number" && Number.isFinite(input.ttlMs)
       ? Math.max(MIN_TTL_MS, input.ttlMs)
@@ -40,8 +40,8 @@ export function putScreenshot(input: { mime: string; data: Uint8Array; ttlMs?: n
 
   const sizeBytes = input.data?.byteLength ?? 0;
   if (sizeBytes <= 0 || sizeBytes > MAX_ITEM_BYTES) {
-    // Refuse absurd inputs to avoid OOM.
-    return { id: randomId() };
+    // Refuse absurd inputs to avoid OOM — signal failure.
+    return { id: "", stored: false };
   }
 
   const id = randomId();
@@ -65,7 +65,7 @@ export function putScreenshot(input: { mime: string; data: Uint8Array; ttlMs?: n
   });
 
   global.__trustcheckScreenshotStoreBytes = (global.__trustcheckScreenshotStoreBytes ?? 0) + sizeBytes;
-  return { id };
+  return { id, stored: true };
 }
 
 export function getScreenshot(id: string): StoredScreenshot | null {

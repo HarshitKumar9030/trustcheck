@@ -202,7 +202,16 @@ function isFlaggedAnalysis(r: AnalysisResponse): boolean {
   const statusFlag = r.status === "High Risk Indicators Detected";
   const verdict = r.agentSignals?.aiJudgment?.verdict;
   const aiFlag = verdict === "suspicious" || verdict === "likely_deceptive";
-  return Boolean(scoreFlag || statusFlag || aiFlag);
+
+  // Sync with server-side: also check Node AI analysis for risk indicators
+  const ai = r.aiAnalysis;
+  const nodeAiFlag = ai
+    ? (ai.riskFactors?.length ?? 0) > 0 &&
+      (ai.trustSignals?.negative?.length ?? 0) > 2 &&
+      ai.aiScore < 50
+    : false;
+
+  return Boolean(scoreFlag || statusFlag || aiFlag || nodeAiFlag);
 }
 
 

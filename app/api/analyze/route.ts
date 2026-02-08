@@ -20,31 +20,12 @@ type AnalyzeRequest = {
   advancedCrawl?: boolean;
 };
 
-const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 4; // 4 days - saves AI costs
-const CACHE_VERSION = "v4";
+const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 2; // 2 days - balance freshness vs AI costs
+const CACHE_VERSION = "v5";
 const ENABLE_CACHE = process.env.ENABLE_CACHE === "true";
 
 function makeCacheKey(hostname: string): string {
   return `${hostname.toLowerCase()}::${CACHE_VERSION}`;
-}
-
-const WELL_KNOWN_DOMAINS = new Set([
-  "google.com", "youtube.com", "facebook.com", "amazon.com", "apple.com",
-  "microsoft.com", "netflix.com", "linkedin.com", "twitter.com", "x.com",
-  "instagram.com", "reddit.com", "wikipedia.org", "github.com", "stackoverflow.com",
-  "ebay.com", "walmart.com", "target.com", "bestbuy.com", "costco.com",
-  "paypal.com", "stripe.com", "shopify.com", "etsy.com", "zoom.us",
-  "slack.com", "dropbox.com", "adobe.com", "salesforce.com", "oracle.com",
-]);
-
-function registrableDomainGuess(hostname: string): string {
-  const parts = hostname.split(".").filter(Boolean);
-  if (parts.length <= 2) return hostname;
-  return parts.slice(-2).join(".");
-}
-
-function isWellKnownDomain(hostname: string): boolean {
-  return WELL_KNOWN_DOMAINS.has(registrableDomainGuess(hostname.toLowerCase()));
 }
 
 function jsonError(message: string, status = 400) {
@@ -142,8 +123,10 @@ function mapPythonAgentSignals(data: PythonAgentResponse): AgentSignals {
       const ttlMs = 30 * 60 * 1000; // 30 minutes
       const mime = (data.screenshot?.mime ?? "image/png").trim() || "image/png";
       const buf = Buffer.from(b64, "base64");
-      const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
-      screenshot = { url: `/api/screenshot/${id}`, mime, expiresInSeconds: Math.round(ttlMs / 1000) };
+      const result = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
+      if (result.stored) {
+        screenshot = { url: `/api/screenshot/${result.id}`, mime, expiresInSeconds: Math.round(ttlMs / 1000) };
+      }
     }
   } catch {
     screenshot = null;

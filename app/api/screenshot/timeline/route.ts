@@ -100,7 +100,9 @@ export async function POST(req: Request) {
       .map((s) => {
         const buf = Buffer.from(s.data_base64, "base64");
         const mime = (s.mime ?? "image/png").trim() || "image/png";
-        const { id } = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
+        const result = putScreenshot({ mime, data: new Uint8Array(buf), ttlMs });
+        if (!result.stored) return null;
+        const { id } = result;
         const atMs = typeof s.at_ms === "number" && Number.isFinite(s.at_ms) ? Math.max(0, Math.round(s.at_ms)) : 0;
         const atSeconds = Math.round(atMs / 1000);
         return {
@@ -111,7 +113,8 @@ export async function POST(req: Request) {
           label: `${atSeconds}s`,
           expiresInSeconds,
         };
-      });
+      })
+      .filter(Boolean);
 
     if (shots.length === 0) return json({ error: "No screenshots captured" }, 502);
 

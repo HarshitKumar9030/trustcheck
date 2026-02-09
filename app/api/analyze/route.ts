@@ -82,6 +82,9 @@ type PythonAgentResponse = {
     business_identity: string;
     summary: string;
     recommendation: string;
+    investigation_log?: string[];
+    contradictions_found?: string[];
+    identity_verdict?: string;
   } | null;
   fetch?: {
     final_url: string;
@@ -185,6 +188,9 @@ function mapPythonAgentSignals(data: PythonAgentResponse): AgentSignals {
           businessIdentity: data.ai_judgment.business_identity,
           summary: data.ai_judgment.summary,
           recommendation: data.ai_judgment.recommendation,
+          investigationLog: data.ai_judgment.investigation_log ?? [],
+          contradictionsFound: data.ai_judgment.contradictions_found ?? [],
+          identityVerdict: data.ai_judgment.identity_verdict ?? "unverifiable",
         }
       : null,
     screenshot,
@@ -198,10 +204,14 @@ async function tryAnalyzeViaPythonAgent(
   const base = (process.env.PYTHON_AGENT_URL ?? "").trim().replace(/\/$/, "");
   if (!base) return null;
 
-  const timeoutMs = (() => {
+  // The Python agent performs crawling + AI analysis + visual analysis and
+  // can take 40-90 s for real sites.  We give it a generous timeout so we
+  // don't abort prematurely and fall through to the much weaker Node.js
+  // fallback (which produces the "No AI summary / No crawl data" symptoms).
+  const agentTimeoutMs = (() => {
     const raw = opts.timeoutMs;
-    if (typeof raw !== "number" || !Number.isFinite(raw)) return 20000;
-    return Math.max(1000, Math.min(60000, Math.round(raw)));
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return 55000;
+    return Math.max(10000, Math.min(60000, Math.round(raw)));
   })();
 
   const checkExternalReviews =
@@ -213,11 +223,13 @@ async function tryAnalyzeViaPythonAgent(
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         url: normalizedUrl,
-        timeout_ms: timeoutMs,
+        timeout_ms: agentTimeoutMs,
         check_external_reviews: checkExternalReviews,
         advanced_crawl: opts.advancedCrawl ?? false,
       }),
-      timeoutMs: timeoutMs + 7000,
+      // Give extra headroom beyond the agent's own timeout so the agent
+      // can finish its work and respond before we abort the fetch.
+      timeoutMs: agentTimeoutMs + 35000,
       cache: "no-store",
     });
 
@@ -256,7 +268,8 @@ async function tryAnalyzeViaPythonAgent(
       aiAnalysis: aiResult,
       agentSignals,
     };
-  } catch {
+  } catch (err) {
+    console.warn("Python agent call failed (falling back to Node analysis):", err instanceof Error ? err.message : err);
     return null;
   }
 }

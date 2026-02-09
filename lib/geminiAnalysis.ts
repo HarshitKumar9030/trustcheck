@@ -129,7 +129,9 @@ export async function analyzeWithAI(data: WebsiteData): Promise<AIAnalysisResult
       config: {
         responseMimeType: "application/json",
         temperature: 0.3,
-        maxOutputTokens: 2048,
+        // 2048 was too low — the structured JSON response regularly exceeds
+        // that limit, causing truncated JSON and a parse crash.
+        maxOutputTokens: 4096,
       },
     });
 
@@ -148,7 +150,30 @@ export async function analyzeWithAI(data: WebsiteData): Promise<AIAnalysisResult
     }
     jsonText = jsonText.trim();
 
-    const result = JSON.parse(jsonText) as AIAnalysisResult;
+    let result: AIAnalysisResult;
+    try {
+      result = JSON.parse(jsonText) as AIAnalysisResult;
+    } catch (parseErr) {
+      // If the JSON was truncated by the token limit, try to repair it by
+      // closing any open strings/objects/arrays.
+      console.warn("Gemini returned truncated JSON, attempting repair…");
+      let repaired = jsonText;
+      // Close an open string
+      const quoteCount = (repaired.match(/(?<!\\)"/g) || []).length;
+      if (quoteCount % 2 !== 0) repaired += '"';
+      // Close brackets/braces
+      const opens = (repaired.match(/[{[]/g) || []).length;
+      const closes = (repaired.match(/[}\]]/g) || []).length;
+      for (let i = 0; i < opens - closes; i++) {
+        repaired += repaired.lastIndexOf("[") > repaired.lastIndexOf("{") ? "]" : "}";
+      }
+      try {
+        result = JSON.parse(repaired) as AIAnalysisResult;
+      } catch {
+        console.error("JSON repair failed, raw text:", jsonText.slice(0, 500));
+        return null;
+      }
+    }
     
     // Validate the result structure
     if (

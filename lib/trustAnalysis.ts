@@ -1,6 +1,6 @@
 import { analyzeWithAI, mergeScores, type AIAnalysisResult, type WebsiteData } from "./geminiAnalysis";
 
-export type Verdict = "good" | "warn" | "bad" | "unknown";
+export type Verdict = "good" | "warn" | "bad" | "unknown" | "info";
 
 export type ExplainabilityItem = {
   key: string;
@@ -54,6 +54,9 @@ export type AgentSignals = {
     businessIdentity: string;
     summary: string;
     recommendation: string;
+    investigationLog?: string[];
+    contradictionsFound?: string[];
+    identityVerdict?: string;
   } | null;
 
   // Short-lived per-run screenshot (served by our API and may expire quickly).
@@ -545,7 +548,7 @@ export async function analyzeWebsite(
   // Scoring (simple, calm heuristic)
   let score = 50;
 
-  const add = (v: Verdict, weights: { good: number; warn: number; bad: number; unknown: number }) => {
+  const add = (v: Verdict, weights: { good: number; warn: number; bad: number; unknown: number; info: number }) => {
     score += weights[v];
   };
 
@@ -554,27 +557,31 @@ export async function analyzeWebsite(
     warn: -10,
     bad: -15,
     unknown: 0,
+    info: 0,
   });
 
-  add(domainVerdict, { good: 15, warn: 5, bad: -12, unknown: isWellKnown ? 10 : 0 });
+  add(domainVerdict, { good: 15, warn: 5, bad: -12, unknown: isWellKnown ? 10 : 0, info: 0 });
   
   add(businessVerdict, { 
     good: 12, 
     warn: 3, 
     bad: -8, 
-    unknown: isWellKnown ? 10 : 0 
+    unknown: isWellKnown ? 10 : 0,
+    info: 0,
   });
   add(medicalVerdict, { 
     good: 5, 
     warn: -8, 
     bad: -8, 
-    unknown: isWellKnown ? 3 : 0 
+    unknown: isWellKnown ? 3 : 0,
+    info: 0,
   });
   add(supportVerdict, { 
     good: 10, 
     warn: 2, 
     bad: -6, 
-    unknown: isWellKnown ? 8 : 0 
+    unknown: isWellKnown ? 8 : 0,
+    info: 0,
   });
 
   // Penalty for cross-domain redirects

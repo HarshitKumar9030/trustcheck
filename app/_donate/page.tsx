@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { DonateClient } from "@/app/donate/DonateClient";
+import { DonateClient } from "@/app/_donate/DonateClient";
 import { NavbarWrapper } from "@/app/components/NavbarWrapper";
 
 export default function DonatePage() {

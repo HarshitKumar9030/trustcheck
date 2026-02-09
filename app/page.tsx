@@ -13,7 +13,7 @@ import { AnimatedActionButton } from "./components/AnimatedActionButton";
 import { Navbar } from "./components/Navbar";
 import { loadScanHistory, saveScanHistory, type ScanRecord } from "./lib/scanHistory";
 
-type Verdict = "good" | "warn" | "bad" | "unknown";
+type Verdict = "good" | "warn" | "bad" | "unknown" | "info";
 
 type ExplainabilityItem = {
   key: string;
@@ -82,6 +82,9 @@ type AgentSignals = {
     businessIdentity: string;
     summary: string;
     recommendation: string;
+    investigationLog?: string[];
+    contradictionsFound?: string[];
+    identityVerdict?: string;
   } | null;
 
   screenshot?: {
@@ -414,6 +417,9 @@ function Icon({ verdict }: { verdict: Verdict }) {
   }
   if (verdict === "bad") {
     return <X className="w-[18px] h-[18px] shrink-0 text-[var(--danger)]" strokeWidth={2.5} />;
+  }
+  if (verdict === "info") {
+    return <Info className="w-[18px] h-[18px] shrink-0 text-[var(--brand)]" strokeWidth={2} />;
   }
   if (verdict === "warn") {
     return <AlertTriangle className="w-[18px] h-[18px] shrink-0 text-[var(--warning)]" strokeWidth={2} />;
@@ -1366,6 +1372,70 @@ export default function Home() {
                                     <div className="mt-2 text-sm text-[var(--text)]">{aiJudgment.productLegitimacy}</div>
                                   </div>
                                 ) : null}
+                              </div>
+                            ) : null}
+
+                            {/* Investigation log — detective-level identity cross-reference results */}
+                            {aiJudgment?.investigationLog && aiJudgment.investigationLog.length > 0 ? (
+                              <div className="rounded-2xl border border-[rgba(47,111,237,0.18)] bg-[rgba(47,111,237,0.04)] px-4 py-4">
+                                <div className="text-xs font-medium uppercase tracking-wide text-[var(--brand)]">
+                                  Investigation log
+                                </div>
+                                <ul className="mt-2 space-y-1.5">
+                                  {aiJudgment.investigationLog.slice(0, 8).map((step, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-sm text-[var(--text)]">
+                                      <span className="text-[var(--brand)] mt-0.5 shrink-0">→</span>
+                                      {step}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+
+                            {/* Contradictions found */}
+                            {aiJudgment?.contradictionsFound && aiJudgment.contradictionsFound.length > 0 ? (
+                              <div className="rounded-2xl border border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.04)] px-4 py-4">
+                                <div className="text-xs font-medium uppercase tracking-wide text-[var(--danger)]">
+                                  Contradictions found
+                                </div>
+                                <ul className="mt-2 space-y-1.5">
+                                  {aiJudgment.contradictionsFound.slice(0, 6).map((c, i) => (
+                                    <li key={i} className="flex items-start gap-2 text-sm text-[var(--text)]">
+                                      <span className="text-[var(--danger)] mt-0.5 shrink-0">✕</span>
+                                      {c}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ) : null}
+
+                            {/* Identity verdict */}
+                            {aiJudgment?.identityVerdict && aiJudgment.identityVerdict !== "unverifiable" ? (
+                              <div className={cn(
+                                "rounded-2xl border px-4 py-4",
+                                aiJudgment.identityVerdict === "verified_real_business"
+                                  ? "border-[rgba(31,122,74,0.18)] bg-[rgba(31,122,74,0.04)]"
+                                  : aiJudgment.identityVerdict === "confirmed_fraud_links"
+                                    ? "border-[rgba(194,65,68,0.18)] bg-[rgba(194,65,68,0.04)]"
+                                    : "border-[rgba(183,121,31,0.18)] bg-[rgba(183,121,31,0.04)]"
+                              )}>
+                                <div className={cn(
+                                  "text-xs font-medium uppercase tracking-wide",
+                                  aiJudgment.identityVerdict === "verified_real_business"
+                                    ? "text-[var(--success)]"
+                                    : aiJudgment.identityVerdict === "confirmed_fraud_links"
+                                      ? "text-[var(--danger)]"
+                                      : "text-[var(--warning)]"
+                                )}>
+                                  Identity verification
+                                </div>
+                                <div className="mt-2 text-sm text-[var(--text)]">
+                                  {aiJudgment.identityVerdict === "verified_real_business"
+                                    ? "Cross-referencing contact information found a verifiable, real business identity."
+                                    : aiJudgment.identityVerdict === "confirmed_fraud_links"
+                                      ? "Cross-referencing contact information found links to known fraud reports or scam databases."
+                                      : "Cross-referencing contact information raised concerns — identity could not be confidently verified."}
+                                </div>
                               </div>
                             ) : null}
                           </motion.div>

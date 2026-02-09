@@ -18,7 +18,6 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
     { label: "Flagged", href: "/flagged", activeClass: "bg-[rgba(194,65,68,0.08)] text-[rgba(194,65,68,1)] " },
     { label: "Report", href: "/report" },
-    { label: "Donate", href: "/donate" },
     { label: "Disclaimer", href: "/disclaimer" },
 ];
 

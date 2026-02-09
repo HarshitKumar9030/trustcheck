@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { Loader } from "@/app/components/Loader";
@@ -138,6 +137,24 @@ function normalizeUrlInput(raw: string): string {
 
   if (!url.hostname || !url.hostname.includes(".")) {
     throw new Error("Please enter a valid website domain.");
+  }
+
+  // Block localhost / private addresses client-side for instant feedback
+  const hn = url.hostname.toLowerCase();
+  if (
+    hn === "localhost" ||
+    hn === "localhost.localdomain" ||
+    hn.endsWith(".local") ||
+    hn.endsWith(".internal") ||
+    /^127\./.test(hn) ||
+    /^10\./.test(hn) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hn) ||
+    /^192\.168\./.test(hn) ||
+    /^0\./.test(hn) ||
+    hn === "::1" ||
+    hn === "[::1]"
+  ) {
+    throw new Error("That looks like a local/private address. Please enter a public website URL.");
   }
 
   url.hash = "";

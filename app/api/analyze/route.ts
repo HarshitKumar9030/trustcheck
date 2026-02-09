@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import dns from "node:dns/promises";
 
 import { getMongoDb } from "../../../lib/mongo";
 import { isFlaggedAnalysis, upsertFlaggedFromAnalysis } from "../../../lib/flaggedSites";
@@ -30,6 +31,126 @@ function makeCacheKey(hostname: string): string {
 
 function jsonError(message: string, status = 400) {
   return NextResponse.json({ error: message }, { status });
+}
+
+/* ------------------------------------------------------------------ */
+/*  Reachability pre-check – fail fast for unreachable / bogus domains */
+/* ------------------------------------------------------------------ */
+
+const PRIVATE_IP_RANGES = [
+  /^127\./,                        // loopback
+  /^10\./,                         // 10.0.0.0/8
+  /^172\.(1[6-9]|2\d|3[01])\./,   // 172.16.0.0/12
+  /^192\.168\./,                   // 192.168.0.0/16
+  /^0\./,                          // 0.0.0.0/8
+  /^169\.254\./,                   // link-local
+  /^::1$/,                         // IPv6 loopback
+  /^fc00:/i,                       // IPv6 ULA
+  /^fe80:/i,                       // IPv6 link-local
+];
+
+function isPrivateIp(ip: string): boolean {
+  return PRIVATE_IP_RANGES.some((re) => re.test(ip));
+}
+
+const BLOCKED_HOSTNAMES = new Set(["localhost", "localhost.localdomain", "broadcasthost"]);
+
+/**
+ * Lightweight pre-flight check:
+ * 1. Block private/loopback targets.
+ * 2. DNS-resolve the hostname (catches typos, non-existent TLDs, etc.).
+ * 3. Quick HEAD/GET probe with a short timeout to confirm the server responds.
+ *
+ * Returns `null` if the domain appears reachable, or an error string otherwise.
+ */
+async function checkDomainReachable(hostname: string, urlToProbe: string): Promise<string | null> {
+  // Block localhost / private hosts
+  if (BLOCKED_HOSTNAMES.has(hostname.toLowerCase())) {
+    return "That looks like a local/private address. Please enter a public website URL.";
+  }
+
+  // If the hostname is already an IP literal, validate it directly
+  const ipLiteralMatch = hostname.match(/^\[?([\d.:a-fA-F]+)\]?$/);
+  if (ipLiteralMatch) {
+    if (isPrivateIp(ipLiteralMatch[1])) {
+      return "That looks like a local/private address. Please enter a public website URL.";
+    }
+    // IP literals skip DNS – go straight to connectivity check below
+  } else {
+    // DNS resolution check
+    try {
+      const addresses = await dns.resolve4(hostname).catch(() => [] as string[]);
+      const addresses6 = await dns.resolve6(hostname).catch(() => [] as string[]);
+      const all = [...addresses, ...addresses6];
+
+      if (all.length === 0) {
+        return `The domain "${hostname}" could not be found. Please check for typos and try again.`;
+      }
+
+      // Block domains resolving to private IPs (DNS rebinding protection)
+      if (all.every((ip) => isPrivateIp(ip))) {
+        return "That domain resolves to a private/internal address and cannot be analyzed.";
+      }
+    } catch {
+      return `The domain "${hostname}" could not be resolved. Please verify the URL and try again.`;
+    }
+  }
+
+  // Quick connectivity probe (HEAD first, fallback to GET)
+  const probeTimeoutMs = 8000;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), probeTimeoutMs);
+  try {
+    let res: Response;
+    try {
+      res = await fetch(urlToProbe, {
+        method: "HEAD",
+        redirect: "follow",
+        signal: controller.signal,
+        headers: {
+          "user-agent": "Mozilla/5.0 (compatible; TrustCheckBot/2.0)",
+          accept: "*/*",
+        },
+        cache: "no-store",
+      });
+    } catch {
+      // Some servers reject HEAD – try a lightweight GET
+      const controller2 = new AbortController();
+      const timer2 = setTimeout(() => controller2.abort(), probeTimeoutMs);
+      try {
+        res = await fetch(urlToProbe, {
+          method: "GET",
+          redirect: "follow",
+          signal: controller2.signal,
+          headers: {
+            "user-agent": "Mozilla/5.0 (compatible; TrustCheckBot/2.0)",
+            accept: "text/html,*/*",
+            range: "bytes=0-0", // minimize body transfer
+          },
+          cache: "no-store",
+        });
+      } catch (e2) {
+        if (e2 instanceof DOMException || (e2 instanceof Error && e2.name === "AbortError")) {
+          return `The website "${hostname}" did not respond in time. It may be offline or blocking automated requests.`;
+        }
+        return `The website "${hostname}" appears to be unreachable. Please verify the URL and try again.`;
+      } finally {
+        clearTimeout(timer2);
+      }
+    }
+
+    // Any HTTP response (even 403/503) means the server IS reachable.
+    // We only block if we couldn't connect at all (handled in catch above).
+    void res;
+    return null;
+  } catch (e) {
+    if (e instanceof DOMException || (e instanceof Error && e.name === "AbortError")) {
+      return `The website "${hostname}" did not respond in time. It may be offline or blocking automated requests.`;
+    }
+    return `The website "${hostname}" appears to be unreachable. Please verify the URL and try again.`;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function fetchWithTimeoutJson(
@@ -363,6 +484,9 @@ export async function POST(req: Request) {
     return Math.max(1000, Math.min(60000, Math.round(raw)));
   })();
 
+  // --- Reachability pre-check (skip for cached results) ---
+  const parsedHostname = (() => { try { return new URL(normalizedUrl).hostname; } catch { return ""; } })();
+
   const checkExternalReviews =
     typeof body.checkExternalReviews === "boolean" ? body.checkExternalReviews : undefined;
   if (!force && ENABLE_CACHE) {
@@ -394,6 +518,14 @@ export async function POST(req: Request) {
       // The Python agent would need to run again to capture new screenshots.
       // This is a conscious trade-off to save AI/analysis costs.
       return NextResponse.json(response);
+    }
+  }
+
+  // Reachability gate: only probe when we actually need a fresh analysis
+  if (parsedHostname) {
+    const unreachableMsg = await checkDomainReachable(parsedHostname, normalizedUrl);
+    if (unreachableMsg) {
+      return jsonError(unreachableMsg, 422);
     }
   }
 

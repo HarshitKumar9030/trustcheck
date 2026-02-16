@@ -341,9 +341,9 @@ type ProgressStep = {
   weight: number;
 };
 
-const DEFAULT_EXPECTED_MS = 24_000;
-const STANDARD_TIMEOUT_MS = 20_000;
-const DEEP_TIMEOUT_MS = 60_000;
+const DEFAULT_EXPECTED_MS = 40_000;
+const STANDARD_TIMEOUT_MS = 45_000;
+const DEEP_TIMEOUT_MS = 120_000;
 
 const PROGRESS_STEPS: ProgressStep[] = [
   {
@@ -545,7 +545,7 @@ export default function Home() {
       const raw = localStorage.getItem("trustcheck:expectedMs");
       if (!raw) return;
       const n = Number(raw);
-      if (Number.isFinite(n) && n >= 6000 && n <= 120000) setExpectedMs(n);
+      if (Number.isFinite(n) && n >= 6000 && n <= 200000) setExpectedMs(n);
     } catch {
       // ignore
     }
@@ -747,7 +747,7 @@ export default function Home() {
       try {
         // Simple rolling expectation: mix old expectation with last duration.
         const next = Math.round(expectedMs * 0.7 + durationMs * 0.3);
-        const bounded = clamp(next, 8000, 90000);
+        const bounded = clamp(next, 8000, 180000);
         localStorage.setItem("trustcheck:expectedMs", String(bounded));
         setExpectedMs(bounded);
       } catch {

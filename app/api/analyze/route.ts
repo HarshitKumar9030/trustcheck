@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import dns from "node:dns/promises";
 
+// Allow up to 180 s on Vercel (Pro plan) so deep crawls finish without 504.
+export const maxDuration = 180;
+
 import { getMongoDb } from "../../../lib/mongo";
 import { isFlaggedAnalysis, upsertFlaggedFromAnalysis } from "../../../lib/flaggedSites";
 import {
@@ -326,13 +329,13 @@ async function tryAnalyzeViaPythonAgent(
   if (!base) return null;
 
   // The Python agent performs crawling + AI analysis + visual analysis and
-  // can take 40-90 s for real sites.  We give it a generous timeout so we
+  // can take 40-120 s for real sites.  We give it a generous timeout so we
   // don't abort prematurely and fall through to the much weaker Node.js
   // fallback (which produces the "No AI summary / No crawl data" symptoms).
   const agentTimeoutMs = (() => {
     const raw = opts.timeoutMs;
-    if (typeof raw !== "number" || !Number.isFinite(raw)) return 55000;
-    return Math.max(10000, Math.min(60000, Math.round(raw)));
+    if (typeof raw !== "number" || !Number.isFinite(raw)) return 90000;
+    return Math.max(10000, Math.min(150000, Math.round(raw)));
   })();
 
   const checkExternalReviews =
@@ -350,7 +353,7 @@ async function tryAnalyzeViaPythonAgent(
       }),
       // Give extra headroom beyond the agent's own timeout so the agent
       // can finish its work and respond before we abort the fetch.
-      timeoutMs: agentTimeoutMs + 35000,
+      timeoutMs: agentTimeoutMs + 45000,
       cache: "no-store",
     });
 

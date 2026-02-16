@@ -342,26 +342,46 @@ async function tryAnalyzeViaPythonAgent(
     typeof opts.checkExternalReviews === "boolean" ? opts.checkExternalReviews : true;
 
   try {
-    const res = await fetchWithTimeoutJson(`${base}/analyze`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        url: normalizedUrl,
-        timeout_ms: agentTimeoutMs,
-        check_external_reviews: checkExternalReviews,
-        advanced_crawl: opts.advancedCrawl ?? false,
-      }),
-      // Give extra headroom beyond the agent's own timeout so the agent
-      // can finish its work and respond before we abort the fetch.
-      timeoutMs: agentTimeoutMs + 45000,
-      cache: "no-store",
-    });
+    // Heroku eco/basic dynos cold-start in 20-40 s.  The first request may get
+    // a 503 before the app boots.  We retry up to 2 times with a brief pause
+    // so a cold start doesn't silently fall through to the weak Node fallback.
+    const MAX_RETRIES = 2;
+    let lastErr: unknown;
 
-    if (!res.ok) return null;
-    const data = (await res.json()) as PythonAgentResponse;
-    if (!data?.normalized_url || typeof data.score !== "number") return null;
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        // Wait before retrying — give the dyno time to finish booting.
+        await new Promise((r) => setTimeout(r, 3000 * attempt));
+        console.info(`[python-agent] Retry attempt ${attempt}/${MAX_RETRIES}`);
+      }
 
-    const agentSignals = mapPythonAgentSignals(data);
+      try {
+        const res = await fetchWithTimeoutJson(`${base}/analyze`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            url: normalizedUrl,
+            timeout_ms: agentTimeoutMs,
+            check_external_reviews: checkExternalReviews,
+            advanced_crawl: opts.advancedCrawl ?? false,
+          }),
+          // Give extra headroom beyond the agent's own timeout so the agent
+          // can finish its work and respond before we abort the fetch.
+          timeoutMs: agentTimeoutMs + 45000,
+          cache: "no-store",
+        });
+
+        // 503 is the classic Heroku cold-start response — retry instead of giving up.
+        if (res.status === 503 && attempt < MAX_RETRIES) {
+          console.warn(`[python-agent] Got 503 (likely cold start), will retry...`);
+          continue;
+        }
+
+        if (!res.ok) return null;
+        const data = (await res.json()) as PythonAgentResponse;
+        if (!data?.normalized_url || typeof data.score !== "number") return null;
+
+        const agentSignals = mapPythonAgentSignals(data);
 
     // Convert AI judgment to our AIAnalysisResult format for UI compatibility
     const aiJudgment = data.ai_judgment;
@@ -392,6 +412,19 @@ async function tryAnalyzeViaPythonAgent(
       aiAnalysis: aiResult,
       agentSignals,
     };
+      } catch (innerErr) {
+        // Network/timeout error — retry if we have attempts left.
+        lastErr = innerErr;
+        if (attempt < MAX_RETRIES) {
+          console.warn(`[python-agent] Attempt ${attempt + 1} failed, will retry:`, innerErr instanceof Error ? innerErr.message : innerErr);
+          continue;
+        }
+      }
+    } // end retry loop
+
+    // All retries exhausted
+    console.warn("Python agent call failed after retries (falling back to Node analysis):", lastErr instanceof Error ? lastErr.message : lastErr);
+    return null;
   } catch (err) {
     console.warn("Python agent call failed (falling back to Node analysis):", err instanceof Error ? err.message : err);
     return null;
